@@ -45,6 +45,18 @@ When editing pages, changes should go into `tlsmcp-site/` (the deployed director
 - **Container**: `max-width: 1140px` centered layout, consistent across all pages
 - Since styles and nav are duplicated per page, changes to shared elements (nav, footer, color variables, fonts) must be applied to every HTML file individually
 
+## Branding: [cyphers]
+
+- The brand name is written as `[cyphers]` — **no spaces** inside the brackets
+- In HTML, brackets are wrapped in `<span class="cyphers-bracket">` for teal coloring: `<span class="cyphers-bracket">[</span>cyphers<span class="cyphers-bracket">]</span>`
+- **Flex gap gotcha**: `.btn` and `.hero-badge` use `display: inline-flex` with `gap: 8px`. If bracket `<span>` elements are direct children of a flex container, the gap creates visible spacing around the brackets. Fix: wrap the entire text content in a single `<span>` so inner spans aren't treated as separate flex items.
+- On teal `btn-primary` buttons, use `style="color: white;"` on bracket spans instead of `.cyphers-bracket` (which is teal)
+
+## Assets
+
+- Static assets live in `assets/` (e.g., `assets/cyphers-hub.webp`, `assets/tlsmcp-logo.png`)
+- Use relative paths (`assets/...`) not absolute (`/assets/...`) so pages work when opened locally via `file://`
+
 ## SEO & Discoverability
 
 Each page includes full SEO meta (description, keywords, canonical URL), Open Graph tags, and Twitter Card meta. The site also provides:
