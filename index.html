@@ -24,6 +24,8 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="TLSMCP | mTLS Proxy &amp; Certificate Lifecycle Automation">
 <meta name="twitter:description" content="Enforce mutual TLS and automate certificates for both client and server. No service mesh required.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -76,7 +78,7 @@ h3 { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
 nav { position:fixed; top:0; left:0; right:0; z-index:100; background:rgba(10,15,26,0.85); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-bottom:1px solid var(--border); }
 .nav-inner { max-width:1140px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
 .nav-logo { display:flex; align-items:center; text-decoration:none; gap:8px; flex-shrink:0; }
-.nav-logo img { height:36px; width:auto; }
+.nav-logo img { height:72px; width:auto; }
 .nav-links { display:flex; gap:32px; align-items:center; }
 .nav-links a { color:var(--text-secondary); text-decoration:none; font-size:14px; font-weight:500; transition:color 0.2s; }
 .nav-links a:hover { color:var(--text-primary); }
@@ -122,7 +124,7 @@ html[data-page="score"] .nav-links a[data-nav="score"] { color:var(--teal); }
 }
 .btn-primary {
   background: var(--teal);
-  color: var(--bg-primary);
+  color: #ffffff;
 }
 .btn-primary:hover {
   background: #3ee8b8;
@@ -168,7 +170,7 @@ html[data-page="score"] .nav-links a[data-nav="score"] { color:var(--teal); }
   border-radius: 100px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--teal);
+  color: var(--text-primary);
   margin-bottom: 28px;
 }
 .hero-badge::before {
@@ -210,7 +212,7 @@ h1 .accent { color: var(--teal); }
   display: flex;
   gap: 36px;
   justify-content: center;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: 13px;
 }
 .hero-proof span {
