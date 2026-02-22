@@ -537,6 +537,37 @@ h2 {
   opacity: 0.5;
 }
 
+/* ── HUB ── */
+.hub-badge {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--teal);
+  padding: 5px 14px;
+  background: var(--teal-glow);
+  border: 1px solid rgba(45, 212, 168, 0.25);
+  border-radius: 100px;
+  margin-bottom: 20px;
+}
+.hub-screenshot {
+  display: block;
+  max-width: 900px;
+  width: 100%;
+  margin: 40px auto;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+.hub-tagline {
+  text-align: center;
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin-top: 32px;
+  font-weight: 500;
+}
+
 /* ── POSTURE / SCORE ── */
 .posture { background: var(--bg-secondary); border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border); }
 .posture-grid {
@@ -1513,11 +1544,58 @@ footer {
   </div>
 </section>
 
+<!-- CYPHERS HUB -->
+<section class="hub" id="hub">
+  <div class="container">
+    <div style="text-align: center;">
+      <div class="section-label" style="justify-content: center;">
+        <span class="num">05</span> // The <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Hub
+      </div>
+      <span class="hub-badge">FREE</span>
+      <h2>Understand. Fix.<br><span class="accent">Improve.</span></h2>
+      <p class="section-desc" style="margin: 0 auto; margin-bottom: 8px;">
+        Your score is just the starting point.
+      </p>
+      <p class="section-desc" style="margin: 0 auto;">
+        Cyphers Hub turns TLS and mTLS configuration into actionable visibility — breaking down certificate weaknesses, lifecycle risks, and policy gaps across your services.
+      </p>
+      <img src="assets/cyphers-hub.webp" alt="Cyphers Hub dashboard showing TLS posture breakdown and remediation steps" class="hub-screenshot">
+    </div>
+    <div class="capabilities-grid reveal-children">
+      <div class="cap-card">
+        <span class="card-coord">[01]</span>
+        <div class="cap-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <h3>Breakdown</h3>
+        <p>See exactly which TLS settings, certificate lifetimes, or revocation gaps are lowering your posture.</p>
+      </div>
+      <div class="cap-card">
+        <span class="card-coord">[02]</span>
+        <div class="cap-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+        </div>
+        <h3>Mitigate</h3>
+        <p>Get clear, actionable steps to enforce TLS 1.3, enable mTLS, and automate certificate rotation.</p>
+      </div>
+      <div class="cap-card">
+        <span class="card-coord">[03]</span>
+        <div class="cap-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        </div>
+        <h3>Rescan</h3>
+        <p>Verify improvements instantly and watch your security posture rise.</p>
+      </div>
+    </div>
+    <p class="hub-tagline">Score 85+ and earn your Cyphers-Approved CheckMark.</p>
+  </div>
+</section>
+
 <!-- CAPABILITIES -->
 <section id="capabilities">
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;"><span class="num">05</span> // Core Capabilities</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">06</span> // Core Capabilities</div>
       <h2>Security at the Speed of AI</h2>
       <p class="section-desc" style="margin: 0 auto;">
         Server certs and client certs, managed together — with automated lifecycle and hardened transport policy built in.
@@ -1576,7 +1654,7 @@ footer {
   <div class="container">
     <div class="posture-grid reveal">
       <div>
-        <div class="section-label"><span class="num">06</span> // From Enforcement to Assurance</div>
+        <div class="section-label"><span class="num">07</span> // From Enforcement to Assurance</div>
         <h2>Measure Your Machine Identity Posture</h2>
         <p class="section-desc" style="margin-bottom: 24px;">
           Identity becomes operationally visible through the <a href="https://www.tlsmcp.com" style="color: var(--teal); text-decoration: none;">Cyphers Hub</a> control plane. See which systems are hardened and which aren't — at a glance.
@@ -1636,7 +1714,7 @@ footer {
 <section>
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;"><span class="num">07</span> // How It Works</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">08</span> // How It Works</div>
       <h2>Three Commands. Full Coverage.</h2>
       <p class="section-desc" style="margin: 0 auto;">
         Start with a single service. Expand when you're ready. No infrastructure overhaul required.
@@ -1669,7 +1747,7 @@ footer {
 <section class="enterprise" id="enterprise" style="background: var(--bg-secondary); border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border);">
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;"><span class="num">08</span> // Enterprise Ready</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">09</span> // Enterprise Ready</div>
       <h2>Built for <span class="accent">High-Assurance</span> Environments</h2>
       <p class="section-desc" style="margin: 0 auto;">
         Designed for regulated, security-critical systems where compliance isn't optional.
@@ -1741,7 +1819,7 @@ footer {
 <section class="scope" id="scope" style="background: var(--bg-primary);">
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;"><span class="num">09</span> // Scope Clarity</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">10</span> // Scope Clarity</div>
       <h2>What TLSMCP Secures</h2>
       <p class="section-desc" style="margin: 0 auto;">
         Identity enforcement is foundational — not a replacement for application security.
@@ -1780,7 +1858,7 @@ footer {
 <section class="faq" id="faq">
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;"><span class="num">10</span> // Common Questions</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">11</span> // Common Questions</div>
       <h2>Frequently Asked Questions</h2>
     </div>
     <div class="faq-list">
@@ -1833,7 +1911,7 @@ footer {
 <!-- CTA -->
 <section class="cta-section" id="cta">
   <div class="container reveal">
-    <div class="section-label" style="justify-content: center;"><span class="num">11</span> // Ready to Start?</div>
+    <div class="section-label" style="justify-content: center;"><span class="num">12</span> // Ready to Start?</div>
     <h2>Secure Your First Service<br>in Under a Minute</h2>
     <p class="section-desc">
       No credit card. No procurement cycle. Deploy TLSMCP on a single endpoint and see verified machine identity in action.
@@ -1849,7 +1927,7 @@ footer {
 <section class="product-family">
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;"><span class="num">12</span> // The <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Platform</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">13</span> // The <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Platform</div>
       <h2>One Platform. Three Products.<br><span class="accent">Every Connection Secured.</span></h2>
       <p class="section-desc" style="margin: 0 auto 40px;">
         TLSMCP is part of the <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> security infrastructure for automation workflows. From prototype to production, Vibe to Viable.
