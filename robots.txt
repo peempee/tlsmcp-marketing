@@ -1,4 +1,4 @@
-# TLSMCP - cyphers.ai
+# TLSMCP - tlsmcp.com
 # Allow all crawlers including AI search platforms
 
 User-agent: *
@@ -34,4 +34,4 @@ Disallow: /
 User-agent: AhrefsBot
 Allow: /
 
-Sitemap: https://www.cyphers.ai/sitemap.xml
+Sitemap: https://www.tlsmcp.com/sitemap.xml
