@@ -24,7 +24,7 @@
 # Redirect Netlify subdomain to custom domain
 [[redirects]]
   from = "https://marketingtlsmcsp.netlify.app/*"
-  to = "https://www.cyphers.ai/:splat"
+  to = "https://www.tlsmcp.com/:splat"
   status = 301
   force = true
 
