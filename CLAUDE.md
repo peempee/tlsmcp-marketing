@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Marketing website for **TLSMCP** — an mTLS proxy and certificate lifecycle automation product by **Cyphers** (www.cyphers.ai). The site is a pure static HTML/CSS site deployed on Netlify.
+Marketing website for **TLSMCP** — an mTLS proxy and certificate lifecycle automation product by **Cyphers** (www.tlsmcp.com). The site is a pure static HTML/CSS site deployed on Netlify.
 
 ## Repository Layout
 
@@ -17,13 +17,12 @@ Inside `tlsmcp-site/`, pages use clean URL structure with `index.html` inside di
 
 ```
 tlsmcp-site/
-  index.html                       → Redirect to /tlsmcp/
-  tlsmcp/index.html                → Main landing page
-  tlsmcp/mtls/index.html           → mTLS & Client Certificates
-  tlsmcp/server-certs/index.html   → Server Certificate Automation
-  tlsmcp/enterprise/index.html     → Enterprise Security
-  tlsmcp/how-it-works/index.html   → Technical Architecture
-  score/index.html                 → Cyphers Score
+  index.html                       → Main landing page (/)
+  mtls/index.html                  → mTLS & Client Certificates (/mtls/)
+  server-certs/index.html          → Server Certificate Automation (/server-certs/)
+  enterprise/index.html            → Enterprise Security (/enterprise/)
+  how-it-works/index.html          → Technical Architecture (/how-it-works/)
+  score/index.html                 → Cyphers Score (/score/)
 ```
 
 When editing pages, changes should go into `tlsmcp-site/` (the deployed directory). The root-level HTML files may be slightly out of sync.
@@ -31,7 +30,7 @@ When editing pages, changes should go into `tlsmcp-site/` (the deployed director
 ## Deployment
 
 - **Host**: Netlify, publishing from `tlsmcp-site/` root (`publish = "."` in `netlify.toml`)
-- **Domain**: www.cyphers.ai
+- **Domain**: www.tlsmcp.com
 - **No build step** — Netlify serves the static files directly
 - `_redirects` maps old `.html` filenames to clean URLs (301 redirects)
 - `_headers` sets security headers (CSP, HSTS, X-Frame-Options) and cache policy for `/fonts/*` and `/assets/*`

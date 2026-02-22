@@ -1,14 +1,18 @@
 # Redirect old .html paths to clean URLs (301 permanent)
-/tlsmcp-landing.html    /tlsmcp/    301
-/tlsmcp-mtls.html       /tlsmcp/mtls/    301
-/tlsmcp-server-certs.html   /tlsmcp/server-certs/    301
-/tlsmcp-enterprise.html /tlsmcp/enterprise/    301
-/tlsmcp-how-it-works.html   /tlsmcp/how-it-works/    301
+/tlsmcp-landing.html    /    301
+/tlsmcp-mtls.html       /mtls/    301
+/tlsmcp-server-certs.html   /server-certs/    301
+/tlsmcp-enterprise.html /enterprise/    301
+/tlsmcp-how-it-works.html   /how-it-works/    301
 /tlsmcp-score.html      /score/    301
 
 # Redirect non-trailing-slash to trailing-slash
-/tlsmcp    /tlsmcp/    301
 /score     /score/     301
 
-# Homepage → TLSMCP landing (if this is a product subdomain)
-# /    /tlsmcp/    302
+# Legacy redirects from old /tlsmcp/ paths
+/tlsmcp     /    301
+/tlsmcp/    /    301
+/tlsmcp/mtls/*    /mtls/:splat    301
+/tlsmcp/server-certs/*    /server-certs/:splat    301
+/tlsmcp/enterprise/*    /enterprise/:splat    301
+/tlsmcp/how-it-works/*    /how-it-works/:splat    301

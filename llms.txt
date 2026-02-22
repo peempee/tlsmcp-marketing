@@ -5,15 +5,15 @@ Cyphers provides enterprise security infrastructure for machine-to-machine commu
 
 ## TLSMCP Product Pages
 
-- [TLSMCP Overview](https://www.tlsmcp.com/tlsmcp/): mTLS proxy and certificate lifecycle automation for both client and server certificates. Enforces TLS 1.3, issues unlimited client certificates, and automates renewal across any CA provider.
+- [TLSMCP Overview](https://www.tlsmcp.com/): mTLS proxy and certificate lifecycle automation for both client and server certificates. Enforces TLS 1.3, issues unlimited client certificates, and automates renewal across any CA provider.
 
-- [mTLS & Client Certificates](https://www.tlsmcp.com/tlsmcp/mtls/): Deep dive into mutual TLS enablement. Covers client certificate issuance (unlimited, any duration from 1 hour to 12 months), sidecar proxy architecture, instant revocation, and the network-layer authentication premise.
+- [mTLS & Client Certificates](https://www.tlsmcp.com/mtls/): Deep dive into mutual TLS enablement. Covers client certificate issuance (unlimited, any duration from 1 hour to 12 months), sidecar proxy architecture, instant revocation, and the network-layer authentication premise.
 
-- [Server Certificate Automation](https://www.tlsmcp.com/tlsmcp/server-certs/): Automated server certificate renewal across Let's Encrypt, internal CAs, and commercial providers. Zero-downtime rotation, fleet monitoring, and failure alerting.
+- [Server Certificate Automation](https://www.tlsmcp.com/server-certs/): Automated server certificate renewal across Let's Encrypt, internal CAs, and commercial providers. Zero-downtime rotation, fleet monitoring, and failure alerting.
 
-- [Enterprise Security](https://www.tlsmcp.com/tlsmcp/enterprise/): Enterprise features including FIPS-aligned cryptography, SOC 2 audit trails, role-based access control, multi-tenant isolation, SIEM integration, and on-premise deployment.
+- [Enterprise Security](https://www.tlsmcp.com/enterprise/): Enterprise features including FIPS-aligned cryptography, SOC 2 audit trails, role-based access control, multi-tenant isolation, SIEM integration, and on-premise deployment.
 
-- [How TLSMCP Works](https://www.tlsmcp.com/tlsmcp/how-it-works/): Technical architecture deep-dive covering sidecar proxy deployment, mTLS connection lifecycle, certificate management internals, YAML configuration, and deployment models (Docker, Kubernetes, bare metal).
+- [How TLSMCP Works](https://www.tlsmcp.com/how-it-works/): Technical architecture deep-dive covering sidecar proxy deployment, mTLS connection lifecycle, certificate management internals, YAML configuration, and deployment models (Docker, Kubernetes, bare metal).
 
 ## Platform Features
 
