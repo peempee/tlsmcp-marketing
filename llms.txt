@@ -5,19 +5,19 @@ Cyphers provides enterprise security infrastructure for machine-to-machine commu
 
 ## TLSMCP Product Pages
 
-- [TLSMCP Overview](https://www.cyphers.ai/tlsmcp/): mTLS proxy and certificate lifecycle automation for both client and server certificates. Enforces TLS 1.3, issues unlimited client certificates, and automates renewal across any CA provider.
+- [TLSMCP Overview](https://www.tlsmcp.com/tlsmcp/): mTLS proxy and certificate lifecycle automation for both client and server certificates. Enforces TLS 1.3, issues unlimited client certificates, and automates renewal across any CA provider.
 
-- [mTLS & Client Certificates](https://www.cyphers.ai/tlsmcp/mtls/): Deep dive into mutual TLS enablement. Covers client certificate issuance (unlimited, any duration from 1 hour to 12 months), sidecar proxy architecture, instant revocation, and the network-layer authentication premise.
+- [mTLS & Client Certificates](https://www.tlsmcp.com/tlsmcp/mtls/): Deep dive into mutual TLS enablement. Covers client certificate issuance (unlimited, any duration from 1 hour to 12 months), sidecar proxy architecture, instant revocation, and the network-layer authentication premise.
 
-- [Server Certificate Automation](https://www.cyphers.ai/tlsmcp/server-certs/): Automated server certificate renewal across Let's Encrypt, internal CAs, and commercial providers. Zero-downtime rotation, fleet monitoring, and failure alerting.
+- [Server Certificate Automation](https://www.tlsmcp.com/tlsmcp/server-certs/): Automated server certificate renewal across Let's Encrypt, internal CAs, and commercial providers. Zero-downtime rotation, fleet monitoring, and failure alerting.
 
-- [Enterprise Security](https://www.cyphers.ai/tlsmcp/enterprise/): Enterprise features including FIPS-aligned cryptography, SOC 2 audit trails, role-based access control, multi-tenant isolation, SIEM integration, and on-premise deployment.
+- [Enterprise Security](https://www.tlsmcp.com/tlsmcp/enterprise/): Enterprise features including FIPS-aligned cryptography, SOC 2 audit trails, role-based access control, multi-tenant isolation, SIEM integration, and on-premise deployment.
 
-- [How TLSMCP Works](https://www.cyphers.ai/tlsmcp/how-it-works/): Technical architecture deep-dive covering sidecar proxy deployment, mTLS connection lifecycle, certificate management internals, YAML configuration, and deployment models (Docker, Kubernetes, bare metal).
+- [How TLSMCP Works](https://www.tlsmcp.com/tlsmcp/how-it-works/): Technical architecture deep-dive covering sidecar proxy deployment, mTLS connection lifecycle, certificate management internals, YAML configuration, and deployment models (Docker, Kubernetes, bare metal).
 
 ## Platform Features
 
-- [Cyphers Score](https://www.cyphers.ai/score/): Real-time 0-100 security posture rating measuring TLS policy enforcement, certificate strength, revocation configuration, and lifecycle hygiene.
+- [Cyphers Score](https://www.tlsmcp.com/score/): Real-time 0-100 security posture rating measuring TLS policy enforcement, certificate strength, revocation configuration, and lifecycle hygiene.
 
 ## Key Concepts
 
@@ -28,6 +28,6 @@ Cyphers provides enterprise security infrastructure for machine-to-machine commu
 
 ## Company
 
-- Website: https://www.cyphers.ai
+- Website: https://www.tlsmcp.com
 - Products: HTTPS Node, TLSMCP, TLS for Claude
 - Tagline: "Machines talk. We make sure no one else is listening."

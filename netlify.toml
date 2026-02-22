@@ -16,8 +16,8 @@
 
 # Force HTTPS
 [[redirects]]
-  from = "http://www.cyphers.ai/*"
-  to = "https://www.cyphers.ai/:splat"
+  from = "http://www.tlsmcp.com/*"
+  to = "https://www.tlsmcp.com/:splat"
   status = 301
   force = true
 
@@ -30,7 +30,7 @@
 
 # Redirect www to non-www (uncomment if you prefer non-www)
 # [[redirects]]
-#   from = "https://www.cyphers.ai/*"
+#   from = "https://www.tlsmcp.com/*"
 #   to = "https://cyphers.ai/:splat"
 #   status = 301
 #   force = true
