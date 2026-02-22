@@ -24,7 +24,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="TLSMCP | mTLS Proxy &amp; Certificate Lifecycle Automation">
 <meta name="twitter:description" content="Enforce mutual TLS and automate certificates for both client and server. No service mesh required.">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -37,7 +37,7 @@
   --teal-dim: #1a8a6e;
   --teal-glow: rgba(45, 212, 168, 0.15);
   --teal-glow-strong: rgba(45, 212, 168, 0.25);
-  --text-primary: #e8edf5;
+  --text-primary: #f0f4ff;
   --text-secondary: #8892a8;
   --text-muted: #5a6478;
   --border: #1e2a42;
@@ -45,16 +45,24 @@
   --red: #ff4d6a;
   --amber: #f5a623;
   --green: #2dd4a8;
+  --cyan: #7dd3fc;
+  --dot-grid: rgba(45, 212, 168, 0.06);
 }
 
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
   overflow-x: hidden;
+  background-image: radial-gradient(var(--dot-grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Bricolage Grotesque', 'IBM Plex Sans', sans-serif;
 }
 
 .container {
@@ -149,9 +157,9 @@ nav {
   top: 60px;
   left: 50%;
   transform: translateX(-50%);
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, var(--teal-glow) 0%, transparent 70%);
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(45, 212, 168, 0.12) 0%, transparent 60%);
   pointer-events: none;
 }
 .hero-badge {
@@ -172,6 +180,13 @@ nav {
   width: 6px; height: 6px;
   background: var(--teal);
   border-radius: 50%;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.4); }
+}
+.hero-badge::before {
+  animation: pulse 2s ease-in-out infinite;
 }
 h1 {
   font-size: clamp(40px, 5vw, 60px);
@@ -214,19 +229,18 @@ section { padding: 100px 0; }
 .section-label {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 600;
+  gap: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
   color: var(--teal);
   margin-bottom: 16px;
 }
-.section-label::before {
-  content: '';
-  width: 20px;
-  height: 1px;
-  background: var(--teal);
+.section-label .num {
+  color: var(--text-muted);
+  font-size: 12px;
 }
 h2 {
   font-size: clamp(28px, 3.5vw, 40px);
@@ -245,8 +259,8 @@ h2 {
 /* ── PROBLEM ── */
 .problem {
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  border-top: 1px dashed var(--border);
+  border-bottom: 1px dashed var(--border);
 }
 .problem-grid {
   display: grid;
@@ -294,8 +308,8 @@ h2 {
 .premise {
   padding: 100px 0;
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  border-top: 1px dashed var(--border);
+  border-bottom: 1px dashed var(--border);
 }
 .premise-grid {
   display: grid;
@@ -515,7 +529,7 @@ h2 {
 }
 
 /* ── POSTURE / SCORE ── */
-.posture { background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.posture { background: var(--bg-secondary); border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border); }
 .posture-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -734,7 +748,7 @@ h2 {
 }
 
 /* ── FAQ ── */
-.faq { background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.faq { background: var(--bg-secondary); border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border); }
 .faq-list {
   max-width: 720px;
   margin: 40px auto 0;
@@ -847,8 +861,8 @@ h2 {
 /* ── PRODUCT FAMILY ── */
 .product-family {
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  border-top: 1px dashed var(--border);
+  border-bottom: 1px dashed var(--border);
 }
 .product-grid {
   display: grid;
@@ -903,7 +917,7 @@ h2 {
 /* ── FOOTER (redesigned) ── */
 footer {
   padding: 60px 0 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px dashed var(--border);
 }
 .footer-grid {
   display: grid;
@@ -1086,6 +1100,7 @@ footer {
 <nav>
   <div class="nav-inner">
     <a href="/tlsmcp/" class="nav-logo"><img src="/assets/tlsmcp-logo.png" alt="TLSMCP" /></a>
+    <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); margin-left: 10px;">v1.0</span>
     <div class="nav-links">
       <a href="https://www.cyphers.ai" class="nav-parent-brand"><span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span></a>
       <a href="/tlsmcp/mtls/">mTLS</a>
@@ -1140,7 +1155,7 @@ footer {
   <div class="container">
     <div class="premise-grid">
       <div>
-        <div class="section-label">The Foundation</div>
+        <div class="section-label"><span class="num">01</span> // The Foundation</div>
         <h2>If You Can't Authenticate at the Network Layer, <span class="accent">You Can't Even Connect</span></h2>
         <p class="section-desc" style="margin-bottom: 24px;">
           Application-layer security assumes the connection is already trusted. But without identity enforcement at the transport layer, any machine can connect — and anything connected can talk.
@@ -1191,7 +1206,7 @@ footer {
 <section class="problem" id="problem">
   <div class="container">
     <div style="text-align: center; margin-bottom: 60px;">
-      <div class="section-label" style="justify-content: center;">Two Problems, One Platform</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">02</span> // Two Problems, One Platform</div>
       <h2>Certificate Management Is Broken<br>at Both Ends</h2>
       <p class="section-desc" style="margin: 0 auto;">
         Whether you're renewing server certificates or trying to enable mTLS with client certs, the operational pain is the same: manual, fragile, and unscalable.
@@ -1298,7 +1313,7 @@ footer {
   <div class="container">
     <div class="problem-grid">
       <div>
-        <div class="section-label">Client Certificates &amp; mTLS</div>
+        <div class="section-label"><span class="num">03</span> // Client Certificates &amp; mTLS</div>
         <h2>Enable mTLS<br><span class="accent">Without the Nightmare</span></h2>
         <p class="section-desc" style="margin-bottom: 28px;">
           Issue unlimited client certificates with any duration — from hours to months. TLSMCP handles issuance, distribution, rotation, and revocation for every client cert, so enabling mTLS is finally as easy as everyone claims it should be.
@@ -1364,7 +1379,7 @@ footer {
 </section>
 
 <!-- SERVER CERT SECTION -->
-<section class="server-certs" id="server-certs" style="background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+<section class="server-certs" id="server-certs" style="background: var(--bg-secondary); border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border);">
   <div class="container">
     <div class="problem-grid">
       <div>
@@ -1391,7 +1406,7 @@ footer {
         </div>
       </div>
       <div>
-        <div class="section-label">Server Certificate Automation</div>
+        <div class="section-label"><span class="num">04</span> // Server Certificate Automation</div>
         <h2>Never Think About<br><span class="accent">Server Cert Renewals</span> Again</h2>
         <p class="section-desc" style="margin-bottom: 28px;">
           Whether you're running Let's Encrypt, an internal CA, or a commercial provider — TLSMCP automates the full server certificate lifecycle. Issue, renew, rotate, and revoke across every service from a single control plane.
@@ -1435,7 +1450,7 @@ footer {
 <section id="capabilities">
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;">Core Capabilities</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">05</span> // Core Capabilities</div>
       <h2>Security at the Speed of AI</h2>
       <p class="section-desc" style="margin: 0 auto;">
         Server certs and client certs, managed together — with automated lifecycle and hardened transport policy built in.
@@ -1491,7 +1506,7 @@ footer {
   <div class="container">
     <div class="posture-grid">
       <div>
-        <div class="section-label">From Enforcement to Assurance</div>
+        <div class="section-label"><span class="num">06</span> // From Enforcement to Assurance</div>
         <h2>Measure Your Machine Identity Posture</h2>
         <p class="section-desc" style="margin-bottom: 24px;">
           Identity becomes operationally visible through the <a href="https://www.cyphers.ai" style="color: var(--teal); text-decoration: none;">Cyphers Hub</a> control plane. See which systems are hardened and which aren't — at a glance.
@@ -1551,7 +1566,7 @@ footer {
 <section>
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;">How It Works</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">07</span> // How It Works</div>
       <h2>Three Commands. Full Coverage.</h2>
       <p class="section-desc" style="margin: 0 auto;">
         Start with a single service. Expand when you're ready. No infrastructure overhaul required.
@@ -1581,10 +1596,10 @@ footer {
 </section>
 
 <!-- ENTERPRISE -->
-<section class="enterprise" id="enterprise" style="background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+<section class="enterprise" id="enterprise" style="background: var(--bg-secondary); border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border);">
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;">Enterprise Ready</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">08</span> // Enterprise Ready</div>
       <h2>Built for <span class="accent">High-Assurance</span> Environments</h2>
       <p class="section-desc" style="margin: 0 auto;">
         Designed for regulated, security-critical systems where compliance isn't optional.
@@ -1656,7 +1671,7 @@ footer {
 <section class="scope" id="scope" style="background: var(--bg-primary);">
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;">Scope Clarity</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">09</span> // Scope Clarity</div>
       <h2>What TLSMCP Secures</h2>
       <p class="section-desc" style="margin: 0 auto;">
         Identity enforcement is foundational — not a replacement for application security.
@@ -1695,7 +1710,7 @@ footer {
 <section class="faq" id="faq">
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;">Common Questions</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">10</span> // Common Questions</div>
       <h2>Frequently Asked Questions</h2>
     </div>
     <div class="faq-list">
@@ -1748,7 +1763,7 @@ footer {
 <!-- CTA -->
 <section class="cta-section" id="cta">
   <div class="container">
-    <div class="section-label" style="justify-content: center;">Ready to Start?</div>
+    <div class="section-label" style="justify-content: center;"><span class="num">11</span> // Ready to Start?</div>
     <h2>Secure Your First Service<br>in Under a Minute</h2>
     <p class="section-desc">
       No credit card. No procurement cycle. Deploy TLSMCP on a single endpoint and see verified machine identity in action.
@@ -1764,7 +1779,7 @@ footer {
 <section class="product-family">
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;">The <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Platform</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">12</span> // The <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Platform</div>
       <h2>One Platform. Three Products.<br><span class="accent">Every Connection Secured.</span></h2>
       <p class="section-desc" style="margin: 0 auto 40px;">
         TLSMCP is part of the <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> security infrastructure for automation workflows. From prototype to production, Vibe to Viable.
