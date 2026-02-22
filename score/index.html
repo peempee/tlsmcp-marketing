@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>[ cyphers ] Score | AI Security Rating for Machine Identity Posture</title>
+<meta name="description" content="The [ cyphers ] Score is a real-time 0-100 security posture rating measuring TLS policy enforcement, certificate strength, revocation configuration, and lifecycle hygiene across your infrastructure.">
+<meta name="keywords" content="cyphers score, security posture rating, TLS security score, certificate health score, machine identity posture, AI security rating, MCP security, certificate compliance score">
+<meta name="author" content="Cyphers">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+<link rel="canonical" href="https://www.cyphers.ai/score">
+<meta property="og:title" content="[ cyphers ] Score | AI Security Rating for Machine Identity">
+<meta property="og:description" content="Real-time 0-100 security posture score across four dimensions: TLS policy, certificate strength, revocation, and lifecycle hygiene.">
+<meta property="og:url" content="https://www.cyphers.ai/score">
+<meta property="og:site_name" content="Cyphers">
+<meta property="og:type" content="product">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="[ cyphers ] Score | Security Posture Rating">
+<meta name="twitter:description" content="Real-time 0-100 security posture rating for machine identity. Four dimensions, continuous monitoring.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-primary: #0a0f1a;
+  --bg-secondary: #0f1629;
+  --bg-card: #141c30;
+  --bg-card-hover: #1a2440;
+  --teal: #2dd4a8;
+  --teal-dim: #1a8a6e;
+  --teal-glow: rgba(45, 212, 168, 0.15);
+  --teal-glow-strong: rgba(45, 212, 168, 0.25);
+  --text-primary: #e8edf5;
+  --text-secondary: #8892a8;
+  --text-muted: #5a6478;
+  --border: #1e2a42;
+  --border-light: #2a3654;
+  --red: #ff4d6a;
+  --amber: #f5a623;
+  --green: #2dd4a8;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  background: rgba(10, 15, 26, 0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+.nav-logo {
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.cyphers-bracket { color: var(--teal); font-weight: 300; }
+.nav-links { display: flex; gap: 32px; align-items: center; }
+.nav-links a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--text-primary); }
+.nav-product-link {
+  font-size: 13px !important;
+  opacity: 0.7;
+}
+.nav-product-link:hover { opacity: 1; }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.25s;
+  cursor: pointer;
+  border: none;
+}
+.btn-primary {
+  background: var(--teal);
+  color: var(--bg-primary);
+}
+.btn-primary:hover {
+  background: #3ee8b8;
+  box-shadow: 0 0 24px var(--teal-glow-strong);
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+}
+.btn-secondary:hover {
+  border-color: var(--teal-dim);
+  background: var(--teal-glow);
+}
+.btn-sm { padding: 8px 18px; font-size: 13px; }
+.btn-nav { padding: 8px 20px; font-size: 13px; border-radius: 6px; }
+.btn-lg { padding: 16px 32px; font-size: 16px; border-radius: 10px; }
+
+/* ── HERO ── */
+.hero {
+  padding: 140px 0 80px;
+  text-align: center;
+  position: relative;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, var(--teal-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--teal-glow);
+  border: 1px solid rgba(45, 212, 168, 0.2);
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--teal);
+  margin-bottom: 28px;
+  text-decoration: none;
+}
+.hero-badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  background: var(--teal);
+  border-radius: 50%;
+}
+h1 {
+  font-size: clamp(40px, 5vw, 56px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -1.5px;
+  margin-bottom: 20px;
+  position: relative;
+}
+h1 .accent { color: var(--teal); }
+.hero-sub {
+  font-size: 18px;
+  color: var(--text-secondary);
+  max-width: 600px;
+  margin: 0 auto 40px;
+  line-height: 1.7;
+}
+
+/* ── SECTION STYLES ── */
+section { padding: 100px 0; }
+.section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--teal);
+  margin-bottom: 16px;
+}
+.section-label::before {
+  content: '';
+  width: 20px;
+  height: 1px;
+  background: var(--teal);
+}
+h2 {
+  font-size: clamp(28px, 3.5vw, 40px);
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.15;
+  margin-bottom: 16px;
+}
+.section-desc {
+  color: var(--text-secondary);
+  font-size: 16px;
+  max-width: 520px;
+  line-height: 1.7;
+}
+
+/* ── SCORE HERO DISPLAY ── */
+.score-hero {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 48px;
+  position: relative;
+}
+.score-hero-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 48px 64px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.score-hero-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+}
+.score-hero-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 120px;
+  font-weight: 800;
+  color: var(--teal);
+  line-height: 1;
+  margin-bottom: 8px;
+  position: relative;
+}
+.score-hero-number span {
+  font-size: 40px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.score-hero-label {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
+.score-hero-sublabel {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── FOUR DIMENSIONS ── */
+.dimensions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-top: 48px;
+}
+.dim-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 32px;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.dim-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px;
+  height: 100%;
+  border-radius: 3px 0 0 3px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.dim-card:hover {
+  border-color: var(--border-light);
+  background: var(--bg-card-hover);
+}
+.dim-card:hover::before { opacity: 1; }
+.dim-card.tls::before { background: var(--teal); }
+.dim-card.cert::before { background: var(--teal); }
+.dim-card.revoke::before { background: var(--amber); }
+.dim-card.lifecycle::before { background: var(--green); }
+.dim-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.dim-header h3 {
+  font-size: 17px;
+  font-weight: 700;
+}
+.dim-score {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 24px;
+  font-weight: 700;
+}
+.dim-card.tls .dim-score { color: var(--teal); }
+.dim-card.cert .dim-score { color: var(--teal); }
+.dim-card.revoke .dim-score { color: var(--amber); }
+.dim-card.lifecycle .dim-score { color: var(--green); }
+.dim-bar {
+  height: 8px;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.dim-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1.5s ease;
+}
+.dim-card p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  margin-bottom: 16px;
+}
+.dim-checks {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dim-checks li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.dim-checks li::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dim-card.tls .dim-checks li::before { background: var(--teal); }
+.dim-card.cert .dim-checks li::before { background: var(--teal); }
+.dim-card.revoke .dim-checks li::before { background: var(--amber); }
+.dim-card.lifecycle .dim-checks li::before { background: var(--green); }
+
+/* ── HOW SCORING WORKS ── */
+.scoring-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+}
+.range-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 32px;
+}
+.range-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: all 0.25s;
+}
+.range-item:hover {
+  border-color: var(--border-light);
+  background: var(--bg-card-hover);
+}
+.range-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 6px;
+  white-space: nowrap;
+  min-width: 80px;
+  text-align: center;
+}
+.range-badge.excellent { background: rgba(45, 212, 168, 0.15); color: var(--teal); }
+.range-badge.good { background: rgba(45, 212, 168, 0.1); color: #5ae0c0; }
+.range-badge.fair { background: rgba(245, 166, 35, 0.15); color: var(--amber); }
+.range-badge.poor { background: rgba(255, 77, 106, 0.12); color: var(--red); }
+.range-info h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.range-info p {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── BEFORE/AFTER ── */
+.comparison {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.comparison-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 48px;
+}
+.comparison-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 36px;
+  position: relative;
+  overflow: hidden;
+}
+.comparison-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.comparison-card.before::before { background: var(--red); }
+.comparison-card.after::before { background: var(--teal); }
+.comparison-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 12px;
+}
+.comparison-card.before .comparison-label { color: var(--red); }
+.comparison-card.after .comparison-label { color: var(--teal); }
+.comparison-score {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.comparison-card.before .comparison-score { color: var(--red); }
+.comparison-card.after .comparison-score { color: var(--teal); }
+.comparison-score span {
+  font-size: 22px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.comparison-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+  line-height: 1.6;
+}
+.comparison-items {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.comparison-items li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.comparison-items li svg { flex-shrink: 0; }
+.comparison-card.before .comparison-items li svg { color: var(--red); }
+.comparison-card.after .comparison-items li svg { color: var(--teal); }
+
+/* ── WHAT IMPROVES ── */
+.improves-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 48px;
+}
+.improve-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px 24px;
+  text-align: center;
+  transition: all 0.25s;
+}
+.improve-card:hover {
+  border-color: var(--border-light);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+}
+.improve-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--teal-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+.improve-icon svg { color: var(--teal); }
+.improve-card h4 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.improve-card p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ── CTA ── */
+.cta-section {
+  text-align: center;
+  position: relative;
+}
+.cta-section::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 500px;
+  height: 400px;
+  background: radial-gradient(circle, var(--teal-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+.cta-section h2, .cta-section .section-desc, .cta-buttons { position: relative; }
+.cta-section .section-desc {
+  margin: 0 auto 36px;
+  max-width: 480px;
+}
+.cta-buttons {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+}
+
+/* ── BACK LINK ── */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 13px;
+  margin-bottom: 40px;
+  transition: color 0.2s;
+}
+.back-link:hover { color: var(--teal); }
+
+/* ── FOOTER ── */
+footer {
+  padding: 40px 0;
+  border-top: 1px solid var(--border);
+}
+.footer-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.footer-brand {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.footer-brand a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.footer-brand a:hover { color: var(--teal); }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--text-secondary); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .dimensions-grid, .scoring-grid, .comparison-grid { grid-template-columns: 1fr; }
+  .improves-grid { grid-template-columns: 1fr; }
+  .nav-links { display: none; }
+  .score-hero-card { padding: 36px 28px; }
+  .score-hero-number { font-size: 80px; }
+  .footer-inner { flex-direction: column; gap: 16px; }
+}
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Cyphers Score",
+  "applicationCategory": "SecurityApplication",
+  "description": "Real-time 0-100 security posture rating that measures TLS policy enforcement, certificate strength, revocation configuration, and lifecycle hygiene across your infrastructure.",
+  "url": "https://www.cyphers.ai/score",
+  "brand": {"@type": "Organization", "name": "Cyphers", "url": "https://www.cyphers.ai"}
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Cyphers", "item": "https://www.cyphers.ai"},
+    {"@type": "ListItem", "position": 2, "name": "Cyphers Score", "item": "https://www.cyphers.ai/score"}
+  ]
+}
+</script>
+</head>
+<body>
+
+<!-- NAV -->
+<header>
+<nav>
+  <div class="nav-inner">
+    <a href="https://www.cyphers.ai" class="nav-logo"><span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span></a>
+    <div class="nav-links">
+      <a href="/tlsmcp/" class="nav-product-link">TLSMCP</a>
+      <a href="#dimensions">Dimensions</a>
+      <a href="#scoring">Scoring</a>
+      <a href="#before-after">Before &amp; After</a>
+      <a href="https://www.cyphers.ai#score" class="btn btn-primary btn-nav">Check Your Score</a>
+    </div>
+  </div>
+</nav>
+</header>
+
+<!-- MAIN CONTENT -->
+<main>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <a href="/tlsmcp/" class="back-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      Back to TLSMCP
+    </a>
+    <div class="hero-badge">Powered by <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span></div>
+    <h1>
+      Know Your Machine<br>
+      <span class="accent">Identity Posture</span>
+    </h1>
+    <p class="hero-sub">
+      The <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Score is a composite security rating (0–100) that measures how well your infrastructure enforces machine identity. Four dimensions. One number. Complete visibility.
+    </p>
+
+    <div class="score-hero">
+      <div class="score-hero-card">
+        <div class="score-hero-number">98<span>/100</span></div>
+        <div class="score-hero-label"><span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Score &mdash; Machine Identity Posture Rating</div>
+        <div class="score-hero-sublabel">Updated in real time via Cyphers Hub</div>
+      </div>
+    </div>
+
+    <a href="https://www.cyphers.ai#score" class="btn btn-primary btn-lg">Check Your Score at cyphers.ai</a>
+  </div>
+</section>
+
+<!-- FOUR DIMENSIONS -->
+<section id="dimensions" style="background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+  <div class="container">
+    <div style="text-align: center;">
+      <div class="section-label" style="justify-content: center;">Four Dimensions</div>
+      <h2>What the Score Measures</h2>
+      <p class="section-desc" style="margin: 0 auto;">
+        Each dimension is independently scored and weighted. Together they give you a single, actionable number that reflects your real security posture.
+      </p>
+    </div>
+    <div class="dimensions-grid">
+      <!-- Dim 1 -->
+      <div class="dim-card tls">
+        <div class="dim-header">
+          <h3>TLS Policy Enforcement</h3>
+          <div class="dim-score">100</div>
+        </div>
+        <div class="dim-bar"><div class="dim-bar-fill" style="width: 100%; background: var(--teal);"></div></div>
+        <p>Are your services enforcing modern transport security? This dimension checks that TLS 1.3 is required, legacy protocols are blocked, and cipher suites meet current standards.</p>
+        <ul class="dim-checks">
+          <li>TLS 1.3 enforcement (no fallback)</li>
+          <li>Deprecated cipher suite rejection</li>
+          <li>Protocol downgrade protection</li>
+          <li>HSTS and certificate transparency</li>
+        </ul>
+      </div>
+      <!-- Dim 2 -->
+      <div class="dim-card cert">
+        <div class="dim-header">
+          <h3>Certificate Strength</h3>
+          <div class="dim-score">98</div>
+        </div>
+        <div class="dim-bar"><div class="dim-bar-fill" style="width: 98%; background: var(--teal);"></div></div>
+        <p>How strong are the certificates in use across your fleet? This measures key lengths, signature algorithms, chain validity, and whether certificates are properly scoped.</p>
+        <ul class="dim-checks">
+          <li>RSA 2048+ or ECDSA P-256+ keys</li>
+          <li>SHA-256 or stronger signatures</li>
+          <li>Valid certificate chains</li>
+          <li>Properly scoped SANs</li>
+        </ul>
+      </div>
+      <!-- Dim 3 -->
+      <div class="dim-card revoke">
+        <div class="dim-header">
+          <h3>Revocation Configuration</h3>
+          <div class="dim-score">95</div>
+        </div>
+        <div class="dim-bar"><div class="dim-bar-fill" style="width: 95%; background: var(--amber);"></div></div>
+        <p>Can you revoke a compromised certificate immediately? This checks that OCSP stapling, CRL distribution, and revocation workflows are configured and functional — for both client and server certs.</p>
+        <ul class="dim-checks">
+          <li>OCSP stapling enabled</li>
+          <li>CRL distribution points configured</li>
+          <li>Revocation latency under threshold</li>
+          <li>Client cert revocation paths verified</li>
+        </ul>
+      </div>
+      <!-- Dim 4 -->
+      <div class="dim-card lifecycle">
+        <div class="dim-header">
+          <h3>Lifecycle Hygiene</h3>
+          <div class="dim-score">99</div>
+        </div>
+        <div class="dim-bar"><div class="dim-bar-fill" style="width: 99%; background: var(--green);"></div></div>
+        <p>Is your certificate lifecycle automated and healthy? This measures rotation frequency, time-to-expiry margins, issuance automation, and whether any certs are overdue or orphaned.</p>
+        <ul class="dim-checks">
+          <li>Automated rotation enabled</li>
+          <li>No certs within expiry danger zone</li>
+          <li>Issuance via automated pipeline</li>
+          <li>No orphaned or unused certificates</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW SCORING WORKS -->
+<section id="scoring">
+  <div class="container">
+    <div class="scoring-grid">
+      <div>
+        <div class="section-label">How It Works</div>
+        <h2>One Number.<br>Four Dimensions.<br><span class="accent">Real-Time Updates.</span></h2>
+        <p class="section-desc" style="margin-bottom: 24px;">
+          The <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Score is calculated continuously by the Cyphers Hub control plane. It scans every connected endpoint, evaluates all four dimensions, and produces a weighted composite score.
+        </p>
+        <p class="section-desc">
+          The score updates in real time as you deploy TLSMCP, rotate certificates, or change policies — so you always know exactly where you stand.
+        </p>
+      </div>
+      <div>
+        <ul class="range-list">
+          <li class="range-item">
+            <div class="range-badge excellent">90–100</div>
+            <div class="range-info">
+              <h4>Excellent</h4>
+              <p>Fully hardened. Modern TLS, automated lifecycle, complete revocation coverage.</p>
+            </div>
+          </li>
+          <li class="range-item">
+            <div class="range-badge good">70–89</div>
+            <div class="range-info">
+              <h4>Good</h4>
+              <p>Strong posture with minor gaps. Typically missing automation on some endpoints.</p>
+            </div>
+          </li>
+          <li class="range-item">
+            <div class="range-badge fair">40–69</div>
+            <div class="range-info">
+              <h4>Needs Attention</h4>
+              <p>Significant gaps in enforcement, expiring certificates, or missing revocation paths.</p>
+            </div>
+          </li>
+          <li class="range-item">
+            <div class="range-badge poor">0–39</div>
+            <div class="range-info">
+              <h4>Critical</h4>
+              <p>Minimal machine identity enforcement. Legacy TLS, manual processes, no visibility.</p>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BEFORE / AFTER -->
+<section class="comparison" id="before-after">
+  <div class="container">
+    <div style="text-align: center;">
+      <div class="section-label" style="justify-content: center;">The Difference</div>
+      <h2>Before and After TLSMCP</h2>
+      <p class="section-desc" style="margin: 0 auto;">
+        A typical infrastructure before and after deploying TLSMCP and connecting to Cyphers Hub.
+      </p>
+    </div>
+    <div class="comparison-grid">
+      <div class="comparison-card before">
+        <div class="comparison-label">Before TLSMCP</div>
+        <div class="comparison-score">34<span>/100</span></div>
+        <p class="comparison-desc">Manual processes, expiring certs, no mTLS, no visibility.</p>
+        <ul class="comparison-items">
+          <li>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            TLS 1.2 allowed on 60% of endpoints
+          </li>
+          <li>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            3 certs expired in the last 30 days
+          </li>
+          <li>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            No client certificate enforcement
+          </li>
+          <li>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            No revocation mechanism configured
+          </li>
+          <li>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            Renewal tracked in spreadsheets
+          </li>
+        </ul>
+      </div>
+      <div class="comparison-card after">
+        <div class="comparison-label">After TLSMCP</div>
+        <div class="comparison-score">98<span>/100</span></div>
+        <p class="comparison-desc">Automated lifecycle, enforced mTLS, real-time visibility via Cyphers Hub.</p>
+        <ul class="comparison-items">
+          <li>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            TLS 1.3 enforced on 100% of endpoints
+          </li>
+          <li>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            All certs auto-rotating before expiry
+          </li>
+          <li>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            mTLS enforced on every connection
+          </li>
+          <li>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Instant revocation for client &amp; server certs
+          </li>
+          <li>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+            Real-time posture monitoring in Cyphers Hub
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- WHAT IMPROVES YOUR SCORE -->
+<section>
+  <div class="container">
+    <div style="text-align: center;">
+      <div class="section-label" style="justify-content: center;">Improve Your Score</div>
+      <h2>What Moves the Needle</h2>
+      <p class="section-desc" style="margin: 0 auto;">
+        Every action you take with TLSMCP directly impacts your <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Score. Here's what makes the biggest difference.
+      </p>
+    </div>
+    <div class="improves-grid">
+      <div class="improve-card">
+        <div class="improve-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h4>Enable mTLS</h4>
+        <p>Enforce mutual authentication on every endpoint. Biggest single-action score improvement.</p>
+      </div>
+      <div class="improve-card">
+        <div class="improve-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <h4>Shorten Cert Lifetime</h4>
+        <p>Move from 90-day to 24-hour certs. Shorter lifetimes reduce blast radius and improve hygiene.</p>
+      </div>
+      <div class="improve-card">
+        <div class="improve-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <h4>Block TLS 1.2</h4>
+        <p>Enforce TLS 1.3 only. Every endpoint still allowing legacy negotiation drags the score down.</p>
+      </div>
+      <div class="improve-card">
+        <div class="improve-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
+        <h4>Configure Revocation</h4>
+        <p>Enable OCSP stapling and CRL for both client and server certs. Close the revocation gap.</p>
+      </div>
+      <div class="improve-card">
+        <div class="improve-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <h4>Automate Rotation</h4>
+        <p>Replace manual renewal with automated lifecycle. Eliminates the #1 cause of cert-related outages.</p>
+      </div>
+      <div class="improve-card">
+        <div class="improve-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/></svg>
+        </div>
+        <h4>Cover All Services</h4>
+        <p>Expand TLSMCP to every endpoint. Unenforced services create score blind spots.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="container">
+    <div class="section-label" style="justify-content: center;">Find Out Where You Stand</div>
+    <h2>Check Your <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Score</h2>
+    <p class="section-desc">
+      See how your infrastructure measures up across all four dimensions. Free, instant, and no installation required.
+    </p>
+    <div class="cta-buttons">
+      <a href="https://www.cyphers.ai#score" class="btn btn-primary btn-lg">Check Your Score at cyphers.ai</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Score &mdash;
+        part of the <a href="https://www.cyphers.ai">cyphers.ai</a> platform
+      </div>
+      <div class="footer-links">
+        <a href="/tlsmcp/">TLSMCP</a>
+        <a href="https://www.cyphers.ai">Cyphers Hub</a>
+        <a href="https://www.cyphers.ai">cyphers.ai</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

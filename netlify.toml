@@ -1,0 +1,39 @@
+[build]
+  publish = "."
+
+# Pretty URLs (trailing slashes)
+[build.processing]
+  skip_processing = false
+
+[build.processing.html]
+  pretty_urls = true
+
+# Custom 404
+# [[redirects]]
+#   from = "/*"
+#   to = "/404.html"
+#   status = 404
+
+# Force HTTPS
+[[redirects]]
+  from = "http://www.cyphers.ai/*"
+  to = "https://www.cyphers.ai/:splat"
+  status = 301
+  force = true
+
+# Redirect www to non-www (uncomment if you prefer non-www)
+# [[redirects]]
+#   from = "https://www.cyphers.ai/*"
+#   to = "https://cyphers.ai/:splat"
+#   status = 301
+#   force = true
+
+# Headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"

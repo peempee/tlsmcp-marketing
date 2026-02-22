@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Server Certificate Automation | TLSMCP — a [ cyphers ] product</title>
+
+<!-- SEO Meta -->
+<meta name="description" content="Automate server certificate renewal across Let's Encrypt, internal CAs, and commercial providers with TLSMCP. Zero-downtime rotation, fleet monitoring, and failure alerting — one policy for every service.">
+<meta name="keywords" content="server certificate automation, Let's Encrypt automation, certificate renewal, SSL certificate management, TLS certificate rotation, zero downtime certificate deployment, certbot replacement, certificate monitoring">
+<meta name="author" content="Cyphers">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+<link rel="canonical" href="https://www.cyphers.ai/tlsmcp/server-certs">
+
+<!-- Open Graph -->
+<meta property="og:title" content="Server Certificate Automation | TLSMCP">
+<meta property="og:description" content="Automate server cert renewal across any CA provider. Zero-downtime rotation, fleet monitoring, no more cron jobs. A [ cyphers ] product.">
+<meta property="og:url" content="https://www.cyphers.ai/tlsmcp/server-certs">
+<meta property="og:site_name" content="Cyphers">
+<meta property="og:type" content="article">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Server Certificate Automation | TLSMCP">
+<meta name="twitter:description" content="Automate server cert renewal across Let's Encrypt, internal CAs, and commercial providers. Zero-downtime rotation.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-primary: #0a0f1a;
+  --bg-secondary: #0f1629;
+  --bg-card: #141c30;
+  --bg-card-hover: #1a2440;
+  --teal: #2dd4a8;
+  --teal-dim: #1a8a6e;
+  --teal-glow: rgba(45, 212, 168, 0.15);
+  --teal-glow-strong: rgba(45, 212, 168, 0.25);
+  --text-primary: #e8edf5;
+  --text-secondary: #8892a8;
+  --text-muted: #5a6478;
+  --border: #1e2a42;
+  --border-light: #2a3654;
+  --red: #ff4d6a;
+  --amber: #f5a623;
+  --green: #2dd4a8;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+.container { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(10, 15, 26, 0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner {
+  max-width: 1140px; margin: 0 auto; padding: 0 24px;
+  display: flex; align-items: center; justify-content: space-between; height: 64px;
+}
+.nav-logo { display: flex; align-items: center; text-decoration: none; }
+.nav-logo img { height: 36px; width: auto; }
+.nav-parent-brand { font-size: 13px !important; opacity: 0.7; }
+.nav-parent-brand:hover { opacity: 1; }
+.cyphers-bracket { color: var(--teal); font-weight: 300; }
+.nav-links { display: flex; gap: 32px; align-items: center; }
+.nav-links a { color: var(--text-secondary); text-decoration: none; font-size: 14px; font-weight: 500; transition: color 0.2s; }
+.nav-links a:hover { color: var(--text-primary); }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px;
+  border-radius: 8px; font-size: 14px; font-weight: 600; text-decoration: none;
+  transition: all 0.25s; cursor: pointer; border: none;
+}
+.btn-primary { background: var(--teal); color: var(--bg-primary); }
+.btn-primary:hover { background: #3ee8b8; box-shadow: 0 0 24px var(--teal-glow-strong); }
+.btn-secondary { background: transparent; color: var(--text-primary); border: 1px solid var(--border-light); }
+.btn-secondary:hover { border-color: var(--teal-dim); background: var(--teal-glow); }
+.btn-sm { padding: 8px 18px; font-size: 13px; }
+.btn-nav { padding: 8px 20px; font-size: 13px; border-radius: 6px; }
+.btn-lg { padding: 16px 32px; font-size: 16px; border-radius: 10px; }
+
+/* ── HERO ── */
+.hero { padding: 140px 0 80px; text-align: center; position: relative; }
+.hero::before {
+  content: ''; position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(245, 166, 35, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px;
+  background: var(--teal-glow); border: 1px solid rgba(45, 212, 168, 0.2);
+  border-radius: 100px; font-size: 13px; font-weight: 500; color: var(--teal);
+  margin-bottom: 28px; text-decoration: none;
+}
+.hero-badge::before { content: ''; width: 6px; height: 6px; background: var(--teal); border-radius: 50%; }
+h1 { font-size: clamp(40px, 5vw, 60px); font-weight: 800; line-height: 1.1; letter-spacing: -1.5px; margin-bottom: 20px; position: relative; }
+h1 .accent { color: var(--amber); }
+.hero-sub { font-size: 18px; color: var(--text-secondary); max-width: 620px; margin: 0 auto 36px; line-height: 1.7; }
+.hero-ctas { display: flex; gap: 14px; justify-content: center; margin-bottom: 48px; }
+.hero-proof { display: flex; gap: 36px; justify-content: center; color: var(--text-muted); font-size: 13px; }
+.hero-proof span { display: flex; align-items: center; gap: 6px; }
+.hero-proof svg { opacity: 0.5; }
+
+/* ── SECTION STYLES ── */
+section { padding: 100px 0; }
+.section-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--teal); margin-bottom: 16px;
+}
+.section-label::before { content: ''; width: 20px; height: 1px; background: var(--teal); }
+h2 { font-size: clamp(28px, 3.5vw, 40px); font-weight: 800; letter-spacing: -1px; line-height: 1.15; margin-bottom: 16px; }
+h3 { font-size: 20px; font-weight: 700; margin-bottom: 12px; }
+.section-desc { color: var(--text-secondary); font-size: 16px; max-width: 520px; line-height: 1.7; }
+
+/* ── TERMINAL ── */
+.terminal {
+  background: #0c0c0c; border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden; font-family: 'JetBrains Mono', monospace; font-size: 13px; max-width: 520px;
+}
+.terminal-bar { background: #1a1a2e; padding: 10px 16px; display: flex; gap: 6px; align-items: center; }
+.terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
+.terminal-dot.r { background: #ff5f57; }
+.terminal-dot.y { background: #ffbd2e; }
+.terminal-dot.g { background: #28c840; }
+.terminal-body { padding: 20px; line-height: 1.8; }
+.terminal-body .prompt { color: var(--teal); }
+.terminal-body .cmd { color: var(--text-primary); }
+.terminal-body .output { color: var(--text-muted); }
+.terminal-body .success { color: var(--teal); }
+.terminal-body .flag { color: var(--amber); }
+.terminal-body .value { color: #7dd3fc; }
+.terminal-body .warn { color: var(--amber); }
+
+/* ── SOLUTION GRID ── */
+.solution-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+
+/* ── PAIN POINT CARDS ── */
+.pain-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 48px; }
+.pain-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 28px 24px; transition: all 0.3s; border-top: 3px solid var(--red);
+}
+.pain-card:hover { border-color: var(--border-light); background: var(--bg-card-hover); }
+.pain-icon {
+  width: 44px; height: 44px; border-radius: 10px;
+  background: rgba(255, 77, 106, 0.1); display: flex; align-items: center; justify-content: center; margin-bottom: 18px;
+}
+.pain-icon svg { color: var(--red); }
+.pain-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.pain-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+/* ── PROVIDER CARDS ── */
+.provider-section { background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.provider-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 48px; }
+.provider-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 28px 24px; transition: all 0.3s; position: relative; overflow: hidden;
+}
+.provider-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent); opacity: 0; transition: opacity 0.3s;
+}
+.provider-card:hover { border-color: var(--border-light); background: var(--bg-card-hover); transform: translateY(-2px); }
+.provider-card:hover::before { opacity: 1; }
+.provider-icon {
+  width: 44px; height: 44px; border-radius: 10px;
+  background: var(--teal-glow); display: flex; align-items: center; justify-content: center; margin-bottom: 18px;
+}
+.provider-icon svg { color: var(--teal); }
+.provider-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.provider-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+/* ── BEFORE / AFTER TIMELINE ── */
+.timeline-section { padding: 100px 0; }
+.timeline-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 48px; }
+.timeline-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 32px; overflow: hidden;
+}
+.timeline-card.before { border-top: 3px solid var(--red); }
+.timeline-card.after { border-top: 3px solid var(--teal); }
+.timeline-header { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700; margin-bottom: 24px; }
+.timeline-header.bad { color: var(--red); }
+.timeline-header.good { color: var(--teal); }
+.timeline-event {
+  display: flex; align-items: flex-start; gap: 14px; padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.timeline-event:last-child { border-bottom: none; }
+.timeline-time {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted);
+  min-width: 60px; flex-shrink: 0; padding-top: 2px;
+}
+.timeline-event h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.timeline-event p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+/* ── FEATURE CARDS ── */
+.feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 48px; }
+.feature-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 28px 24px; transition: all 0.3s; position: relative; overflow: hidden;
+}
+.feature-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent); opacity: 0; transition: opacity 0.3s;
+}
+.feature-card:hover { border-color: var(--border-light); background: var(--bg-card-hover); transform: translateY(-2px); }
+.feature-card:hover::before { opacity: 1; }
+.feature-icon {
+  width: 44px; height: 44px; border-radius: 10px;
+  background: var(--teal-glow); display: flex; align-items: center; justify-content: center; margin-bottom: 18px;
+}
+.feature-icon svg { color: var(--teal); }
+.feature-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+.feature-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+/* ── FAQ ── */
+.faq { background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.faq-list { max-width: 720px; margin: 40px auto 0; display: flex; flex-direction: column; gap: 2px; }
+.faq-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.faq-q {
+  padding: 20px 24px; font-size: 15px; font-weight: 600; cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center; transition: color 0.2s; user-select: none;
+}
+.faq-q:hover { color: var(--teal); }
+.faq-q .chevron { transition: transform 0.3s; color: var(--text-muted); flex-shrink: 0; }
+.faq-item.open .faq-q .chevron { transform: rotate(180deg); }
+.faq-a { max-height: 0; overflow: hidden; transition: max-height 0.35s ease, padding 0.35s ease; }
+.faq-item.open .faq-a { max-height: 400px; padding: 0 24px 20px; }
+.faq-a p { font-size: 14px; color: var(--text-secondary); line-height: 1.7; }
+
+/* ── CTA ── */
+.cta-section { text-align: center; position: relative; }
+.cta-section::before {
+  content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 500px; height: 400px;
+  background: radial-gradient(circle, var(--teal-glow) 0%, transparent 70%); pointer-events: none;
+}
+.cta-section h2 { position: relative; }
+.cta-section .section-desc { margin: 0 auto 36px; max-width: 480px; }
+.cta-buttons { display: flex; gap: 14px; justify-content: center; position: relative; }
+
+/* ── PRODUCT FAMILY ── */
+.product-family { background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.product-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.product-card {
+  display: flex; align-items: flex-start; gap: 14px; padding: 24px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+  text-decoration: none; color: var(--text-primary); transition: all 0.25s;
+}
+.product-card:hover { border-color: var(--border-light); background: var(--bg-card-hover); }
+.product-card.active { border-color: var(--teal-dim); background: var(--teal-glow); }
+.product-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: var(--teal-glow); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.product-icon svg { color: var(--teal); }
+.product-card h4 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.product-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+/* ── FOOTER ── */
+footer { padding: 60px 0 0; border-top: 1px solid var(--border); }
+.footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; padding-bottom: 40px; }
+.footer-logo { font-weight: 800; font-size: 20px; color: var(--text-primary); text-decoration: none; display: inline-block; margin-bottom: 12px; }
+.footer-tagline { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 4px; }
+.footer-col h5 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 16px; }
+.footer-col a { display: block; font-size: 14px; color: var(--text-secondary); text-decoration: none; margin-bottom: 10px; transition: color 0.2s; }
+.footer-col a:hover { color: var(--teal); }
+.footer-bottom {
+  display: flex; justify-content: space-between; align-items: center; padding: 20px 0;
+  border-top: 1px solid var(--border); font-size: 13px; color: var(--text-muted);
+}
+.footer-legal { display: flex; gap: 20px; }
+.footer-legal a { color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+.footer-legal a:hover { color: var(--text-secondary); }
+
+/* ── HEADER / MAIN ── */
+header { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(10, 15, 26, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border); }
+main { display: block; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .solution-grid, .timeline-grid { grid-template-columns: 1fr; }
+  .pain-grid, .feature-grid, .provider-grid { grid-template-columns: 1fr; }
+  .nav-links { display: none; }
+  .hero-proof { flex-direction: column; align-items: center; gap: 12px; }
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+  .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
+  .product-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "Server Certificate Automation with TLSMCP",
+  "description": "How TLSMCP automates server certificate renewal, rotation, and monitoring across Let's Encrypt, internal CAs, and commercial certificate providers with zero-downtime deployment.",
+  "url": "https://www.cyphers.ai/tlsmcp/server-certs",
+  "publisher": {"@type": "Organization", "name": "Cyphers", "url": "https://www.cyphers.ai"}
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Does TLSMCP replace certbot?",
+      "acceptedAnswer": {"@type": "Answer", "text": "Yes. TLSMCP handles the full ACME workflow — domain validation, certificate issuance, renewal — plus zero-downtime deployment, fleet monitoring, and alerting. One tool for everything, not one tool per server."}
+    },
+    {
+      "@type": "Question",
+      "name": "What happens if a server certificate renewal fails?",
+      "acceptedAnswer": {"@type": "Answer", "text": "TLSMCP retries automatically with exponential backoff. If the issue persists, you get an immediate alert. Because renewal starts days before expiry, you have time to intervene before any outage."}
+    },
+    {
+      "@type": "Question",
+      "name": "Can I mix Let's Encrypt and commercial certificates?",
+      "acceptedAnswer": {"@type": "Answer", "text": "Yes. Assign different CA providers per service or per environment. Public-facing services on Let's Encrypt, compliance-sensitive endpoints on DigiCert, internal services on your own CA. TLSMCP manages all of them identically."}
+    },
+    {
+      "@type": "Question",
+      "name": "How does zero-downtime certificate rotation work?",
+      "acceptedAnswer": {"@type": "Answer", "text": "TLSMCP stages the new certificate alongside the existing one. The proxy starts serving the new cert to new connections while existing connections continue on the old cert. Once all old connections drain, the old cert is retired. No restart, no gap."}
+    }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Cyphers", "item": "https://www.cyphers.ai"},
+    {"@type": "ListItem", "position": 2, "name": "TLSMCP", "item": "https://www.cyphers.ai/tlsmcp"},
+    {"@type": "ListItem", "position": 3, "name": "Server Certificate Automation", "item": "https://www.cyphers.ai/tlsmcp/server-certs"}
+  ]
+}
+</script>
+</head>
+<body>
+
+<!-- NAV -->
+<header>
+<nav>
+  <div class="nav-inner">
+    <a href="/tlsmcp/" class="nav-logo"><img src="/assets/tlsmcp-logo.png" alt="TLSMCP" /></a>
+    <div class="nav-links">
+      <a href="https://www.cyphers.ai" class="nav-parent-brand"><span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span></a>
+      <a href="/tlsmcp/">Overview</a>
+      <a href="/tlsmcp/mtls/">mTLS</a>
+      <a href="#providers">Providers</a>
+      <a href="#how">How It Works</a>
+      <a href="/score/" class="btn btn-secondary btn-nav">Check Your Score</a>
+      <a href="https://www.cyphers.ai" class="btn btn-primary btn-nav">Get Early Access</a>
+    </div>
+  </div>
+</nav>
+</header>
+
+<!-- HERO -->
+<main>
+<section class="hero">
+  <div class="container">
+    <a href="/tlsmcp/" class="hero-badge" style="text-decoration: none;">← Back to TLSMCP Overview</a>
+    <h1>
+      Server Certificates That<br>
+      <span class="accent">Renew Themselves</span>
+    </h1>
+    <p class="hero-sub">
+      Let's Encrypt, internal CAs, commercial providers — TLSMCP automates server certificate renewal, rotation, and monitoring across every service. No more cron jobs. No more 3am expiry pages. No more silent failures.
+    </p>
+    <div class="hero-ctas">
+      <a href="https://www.cyphers.ai" class="btn btn-primary">Automate Server Certs Free →</a>
+      <a href="#how" class="btn btn-secondary">See How It Works</a>
+    </div>
+    <div class="hero-proof">
+      <span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        Any CA provider
+      </span>
+      <span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+        Zero-downtime rotation
+      </span>
+      <span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        One policy, every service
+      </span>
+    </div>
+  </div>
+</section>
+
+<!-- THE PROBLEM -->
+<section style="background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+  <div class="container">
+    <div style="text-align: center; margin-bottom: 12px;">
+      <div class="section-label" style="justify-content: center;">The Problem</div>
+      <h2>Server Cert Renewal Is a <span style="color: var(--red);">Ticking Clock</span></h2>
+      <p class="section-desc" style="margin: 0 auto;">
+        Every server certificate has an expiry date. Miss it, and your service goes down. The question isn't <em>if</em> a renewal will fail — it's <em>when</em>.
+      </p>
+    </div>
+    <div class="pain-grid">
+      <div class="pain-card">
+        <div class="pain-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <h4>Let's Encrypt Breaks Silently</h4>
+        <p>Certbot configs drift. DNS validation lapses. Cron jobs fail without alerting. You discover the problem when customers can't reach your site — not before.</p>
+      </div>
+      <div class="pain-card">
+        <div class="pain-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <h4>Every Service Is Different</h4>
+        <p>Nginx uses one renewal method. Your internal Go service uses another. The legacy Java app has its own keystore. Consistency across environments is a myth.</p>
+      </div>
+      <div class="pain-card">
+        <div class="pain-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        </div>
+        <h4>Scaling Multiplies the Pain</h4>
+        <p>3 services is manageable. 30 is fragile. 300 is a full-time job. Every new service adds another renewal to track, another config to maintain, another failure mode.</p>
+      </div>
+      <div class="pain-card">
+        <div class="pain-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
+        <h4>Rotation Means Downtime</h4>
+        <p>Replacing a certificate often means restarting the service. Even a graceful reload can cause connection drops. Nobody wants to schedule that at scale.</p>
+      </div>
+      <div class="pain-card">
+        <div class="pain-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <h4>No Single Pane of Glass</h4>
+        <p>Certificates scattered across servers, load balancers, CDNs, and container orchestrators. Nobody knows the full picture until something expires.</p>
+      </div>
+      <div class="pain-card">
+        <div class="pain-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h4>Mixed Provider Chaos</h4>
+        <p>Let's Encrypt for public endpoints, internal CA for microservices, commercial certs for compliance. Each has its own renewal flow, its own tooling, its own way of failing.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW TLSMCP SOLVES IT -->
+<section id="how">
+  <div class="container">
+    <div class="solution-grid">
+      <div>
+        <div class="section-label">The Solution</div>
+        <h2>One Command. <span class="accent" style="color: var(--teal);">Every Server Cert.</span></h2>
+        <p class="section-desc" style="margin-bottom: 24px;">
+          TLSMCP monitors every server certificate in your fleet. When a cert approaches expiry, it renews automatically — regardless of provider. New certs are deployed with zero downtime using overlapping validity windows.
+        </p>
+        <p class="section-desc" style="margin-bottom: 24px;">
+          No per-service configuration. No provider-specific scripts. No cron jobs to forget. Define your policy once in Cyphers Hub; TLSMCP enforces it everywhere.
+        </p>
+        <p class="section-desc">
+          And because TLSMCP handles both server <em>and</em> client certificates, you manage the entire certificate landscape from one control plane. <a href="/tlsmcp/mtls/" style="color: var(--teal);">See the mTLS story →</a>
+        </p>
+      </div>
+      <div class="terminal">
+        <div class="terminal-bar">
+          <div class="terminal-dot r"></div>
+          <div class="terminal-dot y"></div>
+          <div class="terminal-dot g"></div>
+        </div>
+        <div class="terminal-body">
+          <span class="output"># Check all server certs across fleet</span><br>
+          <span class="prompt">$ </span><span class="cmd">tlsmcp certs status</span> <span class="flag">--type</span> <span class="value">server</span><br>
+          <span class="output">&nbsp; api-gateway      23d remaining  <span class="success">✓ ok</span></span><br>
+          <span class="output">&nbsp; auth-service       2d remaining  <span class="warn">⚠ renewing</span></span><br>
+          <span class="output">&nbsp; data-pipeline     41d remaining  <span class="success">✓ ok</span></span><br>
+          <span class="output">&nbsp; webhook-ingress    5d remaining  <span class="warn">⚠ renewing</span></span><br>
+          <span class="output">&nbsp; mcp-server        67d remaining  <span class="success">✓ ok</span></span><br><br>
+          <span class="output"># Auto-renewal kicks in</span><br>
+          <span class="output">&nbsp; auth-service:</span><br>
+          <span class="output">&nbsp;&nbsp; → Renewing with Let's Encrypt...</span><br>
+          <span class="success">&nbsp;&nbsp; ✓ Renewed (90d lifetime)</span><br>
+          <span class="output">&nbsp;&nbsp; → Deploying new cert...</span><br>
+          <span class="success">&nbsp;&nbsp; ✓ Zero-downtime rotation complete</span><br><br>
+          <span class="output">&nbsp; webhook-ingress:</span><br>
+          <span class="output">&nbsp;&nbsp; → Renewing with internal CA...</span><br>
+          <span class="success">&nbsp;&nbsp; ✓ Renewed (365d lifetime)</span><br>
+          <span class="success">&nbsp;&nbsp; ✓ Zero-downtime rotation complete</span><br>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROVIDER SUPPORT -->
+<section class="provider-section" id="providers">
+  <div class="container">
+    <div style="text-align: center;">
+      <div class="section-label" style="justify-content: center;">Provider Agnostic</div>
+      <h2>Works With <span class="accent" style="color: var(--teal);">Every CA</span> You Use</h2>
+      <p class="section-desc" style="margin: 0 auto;">
+        TLSMCP doesn't care where your certificates come from. One renewal engine, one rotation policy, one monitoring dashboard — regardless of provider.
+      </p>
+    </div>
+    <div class="provider-grid">
+      <div class="provider-card">
+        <div class="provider-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <h4>Let's Encrypt</h4>
+        <p>ACME protocol automation with DNS and HTTP validation. No more certbot cron jobs. Handles wildcard certs and multi-domain SANs automatically.</p>
+      </div>
+      <div class="provider-card">
+        <div class="provider-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <h4>Internal CA</h4>
+        <p>Issue server certs from your own certificate authority for internal services. Full lifecycle management with custom validity periods and policy controls.</p>
+      </div>
+      <div class="provider-card">
+        <div class="provider-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+        <h4>Commercial CAs</h4>
+        <p>DigiCert, Sectigo, GlobalSign — TLSMCP handles the renewal workflow for commercial certificates that compliance requires. Same zero-downtime rotation.</p>
+      </div>
+      <div class="provider-card">
+        <div class="provider-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+        </div>
+        <h4>Cloud Provider CAs</h4>
+        <p>AWS ACM, Google-managed SSL, Azure Key Vault — TLSMCP can orchestrate alongside cloud-native certificate services for hybrid deployments.</p>
+      </div>
+      <div class="provider-card">
+        <div class="provider-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        </div>
+        <h4>ACME-Compatible</h4>
+        <p>Any CA that supports the ACME protocol works out of the box. Zero custom integration. Point TLSMCP at the directory URL and go.</p>
+      </div>
+      <div class="provider-card">
+        <div class="provider-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </div>
+        <h4>Mixed Environments</h4>
+        <p>Run Let's Encrypt for public endpoints and internal CA for private services — from the same Cyphers Hub policy. One dashboard for everything.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BEFORE / AFTER -->
+<section class="timeline-section">
+  <div class="container">
+    <div style="text-align: center; margin-bottom: 12px;">
+      <div class="section-label" style="justify-content: center;">Before &amp; After</div>
+      <h2>A Server Cert Expires at 2am</h2>
+      <p class="section-desc" style="margin: 0 auto;">
+        Two scenarios. Same cert. Different outcomes.
+      </p>
+    </div>
+    <div class="timeline-grid">
+      <div class="timeline-card before">
+        <div class="timeline-header bad">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          Without TLSMCP
+        </div>
+        <div class="timeline-event">
+          <div class="timeline-time">-30d</div>
+          <div>
+            <h4>Renewal reminder email</h4>
+            <p>Buried in someone's inbox. Tagged "deal with later."</p>
+          </div>
+        </div>
+        <div class="timeline-event">
+          <div class="timeline-time">-7d</div>
+          <div>
+            <h4>Certbot renewal attempt</h4>
+            <p>Fails silently — DNS validation TXT record is stale. No alert fires.</p>
+          </div>
+        </div>
+        <div class="timeline-event">
+          <div class="timeline-time">02:00</div>
+          <div>
+            <h4 style="color: var(--red);">Certificate expires</h4>
+            <p>Users see ERR_CERT_DATE_INVALID. PagerDuty fires. Someone gets woken up.</p>
+          </div>
+        </div>
+        <div class="timeline-event">
+          <div class="timeline-time">02:45</div>
+          <div>
+            <h4>Manual intervention</h4>
+            <p>SSH in. Debug certbot config. Manually run renewal. Restart nginx. Pray.</p>
+          </div>
+        </div>
+        <div class="timeline-event">
+          <div class="timeline-time">03:20</div>
+          <div>
+            <h4>Service restored</h4>
+            <p>80 minutes of downtime. Post-mortem tomorrow. Same thing happens again in 90 days.</p>
+          </div>
+        </div>
+      </div>
+      <div class="timeline-card after">
+        <div class="timeline-header good">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          With TLSMCP
+        </div>
+        <div class="timeline-event">
+          <div class="timeline-time">-30d</div>
+          <div>
+            <h4>TLSMCP flags upcoming expiry</h4>
+            <p>Cert appears in Cyphers Hub dashboard. Renewal scheduled automatically.</p>
+          </div>
+        </div>
+        <div class="timeline-event">
+          <div class="timeline-time">-14d</div>
+          <div>
+            <h4>Auto-renewal triggered</h4>
+            <p>TLSMCP renews the cert via Let's Encrypt. Validates DNS automatically. New cert staged.</p>
+          </div>
+        </div>
+        <div class="timeline-event">
+          <div class="timeline-time">-14d</div>
+          <div>
+            <h4 style="color: var(--teal);">Zero-downtime rotation</h4>
+            <p>New cert deployed with overlapping validity. Old cert still valid as fallback. No restart needed.</p>
+          </div>
+        </div>
+        <div class="timeline-event">
+          <div class="timeline-time">02:00</div>
+          <div>
+            <h4>Old cert would have expired</h4>
+            <p>Already replaced two weeks ago. Nobody notices. Nobody wakes up. Service runs as normal.</p>
+          </div>
+        </div>
+        <div class="timeline-event">
+          <div class="timeline-time">always</div>
+          <div>
+            <h4>Continuous monitoring</h4>
+            <p>Every cert in your fleet visible in one dashboard. Renewal health, expiry dates, provider status — all in Cyphers Hub.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CAPABILITIES -->
+<section style="background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);" id="capabilities">
+  <div class="container">
+    <div style="text-align: center;">
+      <div class="section-label" style="justify-content: center;">Capabilities</div>
+      <h2>What TLSMCP Automates for <span class="accent" style="color: var(--teal);">Server Certs</span></h2>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+        </div>
+        <h4>Pre-Expiry Renewal</h4>
+        <p>Certs are renewed well before they expire — configurable from 7 to 60 days in advance. Never race against a deadline again.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <h4>Zero-Downtime Deploy</h4>
+        <p>Overlapping validity windows mean the new cert is active before the old one expires. No service restarts. No connection drops.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <h4>Fleet Monitoring</h4>
+        <p>Every server cert across every environment in one Cyphers Hub dashboard. Filter by provider, expiry window, service, or health status.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <h4>Failure Alerting</h4>
+        <p>If a renewal fails — DNS issue, provider outage, validation error — TLSMCP alerts immediately and retries. No silent failures.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <h4>Audit Logging</h4>
+        <p>Every renewal, rotation, and expiry event is logged with timestamp, provider, and outcome. Compliance-ready reporting out of the box.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </div>
+        <h4>Policy-Driven Config</h4>
+        <p>Define renewal windows, preferred providers, and rotation strategy once in Cyphers Hub. Applied consistently to every server cert in your fleet.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+  <div class="container">
+    <div style="text-align: center;">
+      <div class="section-label" style="justify-content: center;">FAQ</div>
+      <h2>Server Cert Questions, <span class="accent" style="color: var(--teal);">Answered</span></h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          Does TLSMCP replace certbot?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>Yes. TLSMCP handles the full ACME workflow that certbot does — domain validation, certificate issuance, renewal — plus zero-downtime deployment, fleet monitoring, and alerting. One tool for everything, not one tool per server.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          What happens if a renewal fails?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>TLSMCP retries automatically with exponential backoff. If the issue persists — DNS misconfiguration, provider outage — you get an immediate alert via webhook, email, or Cyphers Hub dashboard. Because renewal starts days before expiry, you have time to intervene.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          Can I mix Let's Encrypt and commercial certs?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>Absolutely. Assign different CA providers per service or per environment. Public-facing services on Let's Encrypt, compliance-sensitive endpoints on DigiCert, internal services on your own CA. TLSMCP manages all of them identically.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          How does zero-downtime rotation work?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>TLSMCP stages the new certificate alongside the existing one. The sidecar proxy starts serving the new cert to new connections while existing connections continue on the old cert. Once all old connections drain, the old cert is retired. No restart, no gap, no dropped connections.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          Does this work with Kubernetes / Docker?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>Yes. TLSMCP deploys as a sidecar container in Kubernetes pods or a companion container in Docker Compose. It manages server certs as Kubernetes secrets or mounted volumes — no changes to your application containers.</p>
+        </div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          How does this affect my [ cyphers ] Score?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>Automated server cert renewal directly improves your Lifecycle Hygiene and Revocation Configuration dimensions. No expired certs, no stale configs, no gaps in coverage. <a href="/score/" style="color: var(--teal);">Learn more about the [ cyphers ] Score →</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section" id="cta">
+  <div class="container">
+    <div class="section-label" style="justify-content: center;">Get Started</div>
+    <h2>Stop Managing Server Certs.<br><span class="accent" style="color: var(--teal);">Start Automating Them.</span></h2>
+    <p class="section-desc">
+      Add TLSMCP to your first service. Watch it handle the next renewal automatically. Free to start.
+    </p>
+    <div class="cta-buttons">
+      <a href="https://www.cyphers.ai" class="btn btn-primary btn-lg">Deploy TLSMCP Free →</a>
+      <a href="https://www.cyphers.ai" class="btn btn-secondary btn-lg">Talk to an Engineer</a>
+    </div>
+  </div>
+</section>
+
+<!-- PRODUCT FAMILY -->
+<section class="product-family">
+  <div class="container">
+    <div style="text-align: center; margin-bottom: 36px;">
+      <p style="font-size: 14px; color: var(--text-muted);">Part of the <a href="https://www.cyphers.ai" style="color: var(--teal); text-decoration: none;"><span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span></a> ecosystem</p>
+    </div>
+    <div class="product-grid">
+      <a href="#" class="product-card">
+        <div class="product-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div>
+          <h4>HTTPS Node</h4>
+          <p>Automated HTTPS for every node. Zero-config TLS termination and certificate management.</p>
+        </div>
+      </a>
+      <a href="/tlsmcp/" class="product-card active">
+        <div class="product-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div>
+          <h4>TLSMCP <span style="font-size: 11px; color: var(--teal); font-weight: 500; margin-left: 6px;">current</span></h4>
+          <p>mTLS proxy and full certificate lifecycle automation for both client and server certificates.</p>
+        </div>
+      </a>
+      <a href="#" class="product-card">
+        <div class="product-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </div>
+        <div>
+          <h4>TLS for Claude</h4>
+          <p>Verified machine identity for AI agents and MCP connections. Built on TLSMCP.</p>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a href="https://www.cyphers.ai" class="footer-logo"><span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span></a>
+        <p class="footer-tagline">Machines talk. We make sure no one else is listening.</p>
+        <p class="footer-tagline" style="font-style: italic;">From prototype to production, Vibe to Viable.</p>
+      </div>
+      <div class="footer-col">
+        <h5>Products</h5>
+        <a href="#">HTTPS Node</a>
+        <a href="/tlsmcp/">TLSMCP</a>
+        <a href="#">TLS for Claude</a>
+        <a href="/score/">[ cyphers ] Score</a>
+      </div>
+      <div class="footer-col">
+        <h5>Deep Dives</h5>
+        <a href="/tlsmcp/mtls/">mTLS &amp; Client Certs</a>
+        <a href="/tlsmcp/server-certs/">Server Cert Automation</a>
+        <a href="#">Cyphers Hub</a>
+        <a href="https://www.cyphers.ai">Documentation</a>
+      </div>
+      <div class="footer-col">
+        <h5>Company</h5>
+        <a href="https://www.cyphers.ai">About</a>
+        <a href="https://www.cyphers.ai">Pricing</a>
+        <a href="https://www.cyphers.ai">Contact</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; 2026 Cyphers. All rights reserved.</span>
+      <div class="footer-legal">
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+        <a href="#">Security</a>
+      </div>
+    </div>
+  </div>
+</footer>
+</main>
+
+</body>
+</html>

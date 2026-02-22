@@ -1,0 +1,1741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How It Works | TLSMCP — a [ cyphers ] product</title>
+<meta name="description" content="Technical deep-dive into TLSMCP: sidecar proxy architecture, mTLS connection lifecycle, certificate management internals, YAML configuration, deployment models (sidecar, gateway, hybrid), and Kubernetes integration.">
+<meta name="keywords" content="TLSMCP architecture, mTLS sidecar proxy, TLS proxy how it works, certificate management architecture, mTLS connection lifecycle, TLSMCP configuration, Kubernetes mTLS, Docker TLS proxy">
+<meta name="author" content="Cyphers">
+<meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+<link rel="canonical" href="https://www.cyphers.ai/tlsmcp/how-it-works">
+<meta property="og:title" content="How TLSMCP Works | Technical Architecture Deep-Dive">
+<meta property="og:description" content="From install to enforced mTLS in minutes. Sidecar architecture, connection lifecycle, config reference, and deployment models.">
+<meta property="og:url" content="https://www.cyphers.ai/tlsmcp/how-it-works">
+<meta property="og:site_name" content="Cyphers">
+<meta property="og:type" content="article">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How TLSMCP Works | Technical Deep-Dive">
+<meta name="twitter:description" content="Sidecar proxy architecture, mTLS connection lifecycle, config reference, deployment models.">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-primary: #0a0f1a;
+  --bg-secondary: #0f1629;
+  --bg-card: #141c30;
+  --bg-card-hover: #1a2440;
+  --teal: #2dd4a8;
+  --teal-dim: #1a8a6e;
+  --teal-glow: rgba(45, 212, 168, 0.15);
+  --teal-glow-strong: rgba(45, 212, 168, 0.25);
+  --text-primary: #e8edf5;
+  --text-secondary: #8892a8;
+  --text-muted: #5a6478;
+  --border: #1e2a42;
+  --border-light: #2a3654;
+  --red: #ff4d6a;
+  --amber: #f5a623;
+  --green: #2dd4a8;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+.container {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  background: rgba(10, 15, 26, 0.85);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+}
+.nav-logo {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+.nav-logo img {
+  height: 36px;
+  width: auto;
+}
+.nav-parent-brand { font-size: 13px !important; opacity: 0.7; }
+.nav-parent-brand:hover { opacity: 1; }
+.cyphers-bracket { color: var(--teal); font-weight: 300; }
+.nav-links { display: flex; gap: 32px; align-items: center; }
+.nav-links a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--text-primary); }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.25s;
+  cursor: pointer;
+  border: none;
+}
+.btn-primary {
+  background: var(--teal);
+  color: var(--bg-primary);
+}
+.btn-primary:hover {
+  background: #3ee8b8;
+  box-shadow: 0 0 24px var(--teal-glow-strong);
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+}
+.btn-secondary:hover {
+  border-color: var(--teal-dim);
+  background: var(--teal-glow);
+}
+.btn-sm { padding: 8px 18px; font-size: 13px; }
+.btn-nav { padding: 8px 20px; font-size: 13px; border-radius: 6px; }
+.btn-lg { padding: 16px 32px; font-size: 16px; border-radius: 10px; }
+
+/* ── HERO ── */
+.hero {
+  padding: 140px 0 80px;
+  text-align: center;
+  position: relative;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, var(--teal-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: var(--teal-glow);
+  border: 1px solid rgba(45, 212, 168, 0.2);
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--teal);
+  margin-bottom: 28px;
+  text-decoration: none;
+}
+.hero-badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  background: var(--teal);
+  border-radius: 50%;
+}
+h1 {
+  font-size: clamp(40px, 5vw, 60px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -1.5px;
+  margin-bottom: 20px;
+  position: relative;
+}
+h1 .accent { color: var(--teal); }
+.hero-sub {
+  font-size: 18px;
+  color: var(--text-secondary);
+  max-width: 620px;
+  margin: 0 auto 36px;
+  line-height: 1.7;
+}
+.hero-ctas {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  margin-bottom: 48px;
+}
+
+/* ── SECTION STYLES ── */
+section { padding: 100px 0; }
+.section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--teal);
+  margin-bottom: 16px;
+}
+.section-label::before {
+  content: '';
+  width: 20px;
+  height: 1px;
+  background: var(--teal);
+}
+h2 {
+  font-size: clamp(28px, 3.5vw, 40px);
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.15;
+  margin-bottom: 16px;
+}
+h3 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+h4 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.section-desc {
+  color: var(--text-secondary);
+  font-size: 16px;
+  max-width: 520px;
+  line-height: 1.7;
+}
+
+/* ── TERMINAL ── */
+.terminal {
+  background: #0c0c0c;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  max-width: 600px;
+}
+.terminal-bar {
+  background: #1a1a2e;
+  padding: 10px 16px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.terminal-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+.terminal-dot.r { background: #ff5f57; }
+.terminal-dot.y { background: #ffbd2e; }
+.terminal-dot.g { background: #28c840; }
+.terminal-body {
+  padding: 20px;
+  line-height: 1.8;
+  overflow-x: auto;
+}
+.terminal-body .prompt { color: var(--teal); }
+.terminal-body .cmd { color: var(--text-primary); }
+.terminal-body .output { color: var(--text-muted); }
+.terminal-body .success { color: var(--teal); }
+.terminal-body .flag { color: var(--amber); }
+.terminal-body .value { color: #7dd3fc; }
+
+/* ── GRID LAYOUTS ── */
+.premise-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+}
+.solution-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+}
+.three-step-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+
+/* ── STEP CARDS ── */
+.step-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.step-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.step-card:hover {
+  border-color: var(--border-light);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+}
+.step-card:hover::before { opacity: 1; }
+.step-number {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--teal-glow);
+  border: 1px solid rgba(45, 212, 168, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--teal);
+  margin-bottom: 16px;
+}
+.step-card h4 {
+  margin-bottom: 12px;
+}
+.step-card p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+/* ── ARCHITECTURE DIAGRAM ── */
+.arch-section {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.arch-diagram {
+  max-width: 900px;
+  margin: 48px auto 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px;
+}
+.arch-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.arch-row:last-child { margin-bottom: 0; }
+.arch-node {
+  padding: 14px 22px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  min-width: 140px;
+}
+.arch-node.client {
+  background: rgba(125, 211, 252, 0.1);
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  color: #7dd3fc;
+}
+.arch-node.proxy {
+  background: var(--teal-glow);
+  border: 1px solid rgba(45, 212, 168, 0.3);
+  color: var(--teal);
+  font-size: 15px;
+  padding: 18px 28px;
+}
+.arch-node.service {
+  background: rgba(245, 166, 35, 0.1);
+  border: 1px solid rgba(245, 166, 35, 0.25);
+  color: var(--amber);
+}
+.arch-node.hub {
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  color: #a855f7;
+}
+.arch-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.arch-arrow svg { opacity: 0.6; }
+.arch-arrow-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+.arch-divider {
+  width: 100%;
+  height: 1px;
+  background: var(--border);
+  margin: 28px 0;
+  position: relative;
+}
+.arch-divider-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-card);
+  padding: 4px 14px;
+  font-size: 11px;
+  color: var(--teal);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ── FLOW DIAGRAM ── */
+.flow-diagram {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 32px;
+  margin-top: 48px;
+}
+.flow-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+}
+.flow-step + .flow-step {
+  border-top: 1px solid var(--border);
+}
+.flow-number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--teal-glow);
+  border: 1px solid rgba(45, 212, 168, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--teal);
+  flex-shrink: 0;
+}
+.flow-step h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.flow-step p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ── FEATURE/INTEGRATION CARDS ── */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 48px;
+}
+.feature-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px 24px;
+  transition: all 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--teal), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.feature-card:hover {
+  border-color: var(--border-light);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+}
+.feature-card:hover::before { opacity: 1; }
+.feature-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--teal-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+.feature-icon svg { color: var(--teal); }
+.feature-card h4 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.feature-card p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* ── MODEL CARDS (Deployment Models) ── */
+.model-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 48px;
+}
+.model-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 28px 24px;
+  transition: all 0.3s;
+}
+.model-card:hover {
+  border-color: var(--border-light);
+  background: var(--bg-card-hover);
+}
+.model-card h4 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--teal);
+}
+.model-card p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.model-card ul {
+  list-style: none;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.model-card li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+.model-card li::before {
+  content: '→';
+  color: var(--teal);
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: -2px;
+}
+
+/* ── CONFIG CODE BLOCK ── */
+.config-block {
+  background: #0c0c0c;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-x: auto;
+  margin-top: 24px;
+}
+.config-block code {
+  color: var(--text-primary);
+}
+.config-key { color: var(--teal); }
+.config-value { color: #7dd3fc; }
+.config-comment { color: var(--text-muted); }
+
+/* ── FAQ ── */
+.faq { background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.faq-list {
+  max-width: 720px;
+  margin: 40px auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.faq-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.faq-q {
+  padding: 20px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: color 0.2s;
+  user-select: none;
+}
+.faq-q:hover { color: var(--teal); }
+.faq-q .chevron {
+  transition: transform 0.3s;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.faq-item.open .faq-q .chevron { transform: rotate(180deg); }
+.faq-a {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease, padding 0.35s ease;
+}
+.faq-item.open .faq-a {
+  max-height: 600px;
+  padding: 0 24px 20px;
+}
+.faq-a p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin-bottom: 12px;
+}
+.faq-a p:last-child { margin-bottom: 0; }
+
+/* ── CTA ── */
+.cta-section {
+  text-align: center;
+  position: relative;
+}
+.cta-section::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 500px;
+  height: 400px;
+  background: radial-gradient(circle, var(--teal-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+.cta-section h2 { position: relative; }
+.cta-section .section-desc {
+  margin: 0 auto 36px;
+  max-width: 480px;
+}
+.cta-buttons {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  position: relative;
+}
+
+/* ── PRODUCT FAMILY ── */
+.product-family {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.product-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--text-primary);
+  transition: all 0.25s;
+}
+.product-card:hover {
+  border-color: var(--border-light);
+  background: var(--bg-card-hover);
+}
+.product-card.active {
+  border-color: var(--teal-dim);
+  background: var(--teal-glow);
+}
+.product-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--teal-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.product-icon svg { color: var(--teal); }
+.product-card h4 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.product-card p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ── FOOTER ── */
+footer {
+  padding: 60px 0 0;
+  border-top: 1px solid var(--border);
+}
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 40px;
+  padding-bottom: 40px;
+}
+.footer-logo {
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--text-primary);
+  text-decoration: none;
+  display: inline-block;
+  margin-bottom: 12px;
+}
+.footer-tagline {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 4px;
+}
+.footer-col h5 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+.footer-col a {
+  display: block;
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  margin-bottom: 10px;
+  transition: color 0.2s;
+}
+.footer-col a:hover { color: var(--teal); }
+.footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.footer-legal { display: flex; gap: 20px; }
+.footer-legal a {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.footer-legal a:hover { color: var(--text-secondary); }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .premise-grid, .solution-grid { grid-template-columns: 1fr; }
+  .three-step-grid, .feature-grid, .model-grid { grid-template-columns: 1fr 1fr; }
+  .nav-links { display: none; }
+  .footer-grid { grid-template-columns: 1fr 1fr; }
+  .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
+  .product-grid { grid-template-columns: 1fr; }
+  .arch-diagram { padding: 24px; }
+  .arch-row { flex-wrap: wrap; }
+  .cta-buttons { flex-direction: column; }
+}
+@media (max-width: 600px) {
+  .three-step-grid, .feature-grid, .model-grid { grid-template-columns: 1fr; }
+}
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "How TLSMCP Works: Technical Architecture Deep-Dive",
+  "description": "Complete technical walkthrough of TLSMCP: sidecar proxy architecture, mTLS connection lifecycle from TCP connect to TLS 1.3 handshake, certificate management internals, YAML configuration reference, and deployment models for Docker, Kubernetes, and bare metal.",
+  "url": "https://www.cyphers.ai/tlsmcp/how-it-works",
+  "publisher": {"@type": "Organization", "name": "Cyphers", "url": "https://www.cyphers.ai"},
+  "proficiencyLevel": "Advanced"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Cyphers", "item": "https://www.cyphers.ai"},
+    {"@type": "ListItem", "position": 2, "name": "TLSMCP", "item": "https://www.cyphers.ai/tlsmcp"},
+    {"@type": "ListItem", "position": 3, "name": "How It Works", "item": "https://www.cyphers.ai/tlsmcp/how-it-works"}
+  ]
+}
+</script>
+</head>
+<body>
+
+<!-- NAV -->
+<header>
+<nav>
+  <div class="nav-inner">
+    <a href="/tlsmcp/" class="nav-logo"><img src="/assets/tlsmcp-logo.png" alt="TLSMCP" /></a>
+    <div class="nav-links">
+      <a href="https://www.cyphers.ai" class="nav-parent-brand"><span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span></a>
+      <a href="/tlsmcp/">Overview</a>
+      <a href="/tlsmcp/mtls/">mTLS</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#lifecycle">Lifecycle</a>
+      <a href="#integration">Integration</a>
+      <a href="/score/" class="btn btn-secondary btn-nav">Check Your Score</a>
+      <a href="https://www.cyphers.ai" class="btn btn-primary btn-nav">Get Early Access</a>
+    </div>
+  </div>
+</nav>
+</header>
+
+<!-- MAIN CONTENT -->
+<main>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <a href="/tlsmcp/" class="hero-badge" style="text-decoration: none;">← Back to TLSMCP Overview</a>
+    <h1>
+      How TLSMCP Works<br>
+      <span class="accent">From Install to Enforced mTLS in Minutes</span>
+    </h1>
+    <p class="hero-sub">
+      A technical walkthrough of TLSMCP's architecture, certificate lifecycle, and deployment models. See exactly how TLSMCP deploys as a sidecar proxy, manages certificate issuance and rotation, and enforces mutual TLS on every connection.
+    </p>
+    <div class="hero-ctas">
+      <a href="#three-step" class="btn btn-primary">Start Below →</a>
+      <a href="#faq" class="btn btn-secondary">Jump to FAQ</a>
+    </div>
+  </div>
+</section>
+
+<!-- THREE-STEP OVERVIEW -->
+<section id="three-step">
+  <div class="container">
+    <div style="text-align: center; margin-bottom: 48px;">
+      <div class="section-label" style="justify-content: center;">Getting Started</div>
+      <h2>Three Steps to Enforced <span class="accent">mTLS</span></h2>
+      <p class="section-desc" style="margin: 0 auto;">
+        TLSMCP is designed for minimal friction. Deploy the binary, point it at your services, and watch mTLS enforcement activate.
+      </p>
+    </div>
+    <div class="three-step-grid">
+      <div class="step-card">
+        <div class="step-number">1</div>
+        <h4>Install</h4>
+        <p>Deploy TLSMCP as a sidecar binary or container alongside your service. One command, minimal config.</p>
+        <div class="terminal" style="max-width: none; margin-top: 12px;">
+          <div class="terminal-bar">
+            <div class="terminal-dot r"></div>
+            <div class="terminal-dot y"></div>
+            <div class="terminal-dot g"></div>
+          </div>
+          <div class="terminal-body">
+            <span class="prompt">$ </span><span class="cmd">curl -s https://install.cyphers.ai \</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="cmd">| sh</span><br>
+            <span class="success">✓ TLSMCP installed</span><br>
+            <span class="output">&nbsp; Version: 1.4.2</span><br>
+            <span class="output">&nbsp; Location: /usr/local/bin/tlsmcp</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-number">2</div>
+        <h4>Configure</h4>
+        <p>Point TLSMCP at your services, set TLS policy, and define certificate lifetimes. Config is version-controlled.</p>
+        <div class="terminal" style="max-width: none; margin-top: 12px;">
+          <div class="terminal-bar">
+            <div class="terminal-dot r"></div>
+            <div class="terminal-dot y"></div>
+            <div class="terminal-dot g"></div>
+          </div>
+          <div class="terminal-body">
+            <span class="output"># tlsmcp-config.yaml</span><br>
+            <span class="flag">services:</span><br>
+            &nbsp;&nbsp;<span class="flag">- name:</span> <span class="value">api</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">listen:</span> <span class="value">:8443</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">backend:</span> <span class="value">localhost:3000</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">mtls:</span> <span class="value">required</span><br>
+          </div>
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-number">3</div>
+        <h4>Enforce</h4>
+        <p>TLSMCP starts, validates client certs at the TLS handshake, and forwards authenticated requests to your app.</p>
+        <div class="terminal" style="max-width: none; margin-top: 12px;">
+          <div class="terminal-bar">
+            <div class="terminal-dot r"></div>
+            <div class="terminal-dot y"></div>
+            <div class="terminal-dot g"></div>
+          </div>
+          <div class="terminal-body">
+            <span class="prompt">$ </span><span class="cmd">tlsmcp run</span> <span class="flag">--config</span> <span class="value">tlsmcp-config.yaml</span><br>
+            <span class="success">✓ TLSMCP proxy active</span><br>
+            <span class="output">&nbsp; Listening: :8443 (mTLS required)</span><br>
+            <span class="output">&nbsp; Backend: localhost:3000</span><br>
+            <span class="output">&nbsp; Policy: Certs from Cyphers Hub</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SIDECAR ARCHITECTURE DEEP DIVE -->
+<section class="arch-section" id="architecture">
+  <div class="container">
+    <div style="text-align: center; margin-bottom: 48px;">
+      <div class="section-label" style="justify-content: center;">Core Architecture</div>
+      <h2>Sidecar Proxy <span class="accent">Architecture</span></h2>
+      <p class="section-desc" style="margin: 0 auto;">
+        TLSMCP deploys alongside your service, transparently handling TLS termination and certificate validation. Your application never touches TLS.
+      </p>
+    </div>
+    <div class="arch-diagram">
+      <div class="arch-row">
+        <div class="arch-node client">Client A<br><span style="font-size:11px; opacity:0.7;">with cert</span></div>
+        <div style="width: 40px;"></div>
+        <div class="arch-node client">Service B<br><span style="font-size:11px; opacity:0.7;">with cert</span></div>
+        <div style="width: 40px;"></div>
+        <div class="arch-node client">Worker<br><span style="font-size:11px; opacity:0.7;">with cert</span></div>
+      </div>
+
+      <div class="arch-row">
+        <div class="arch-arrow">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          <span class="arch-arrow-label">mTLS handshake · TLS 1.3</span>
+        </div>
+      </div>
+
+      <div class="arch-row">
+        <div class="arch-node proxy">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          TLSMCP Sidecar
+        </div>
+      </div>
+
+      <div class="arch-divider">
+        <span class="arch-divider-label">TLS terminated · Certificate validated · Identity verified</span>
+      </div>
+
+      <div class="arch-row">
+        <div class="arch-node service">
+          Your App<br><span style="font-size:11px; opacity:0.7;">localhost:3000</span>
+        </div>
+      </div>
+
+      <div class="arch-row">
+        <div class="arch-arrow">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          <span class="arch-arrow-label">Plain HTTP (trusted)</span>
+        </div>
+      </div>
+
+      <div class="arch-row">
+        <div class="arch-node hub">Cyphers Hub — Policy · Certs · Audit</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 48px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px;">
+      <h4 style="color: var(--teal); margin-bottom: 14px;">Why Sidecar?</h4>
+      <ul style="list-style: none; color: var(--text-secondary); font-size: 14px; line-height: 1.7; display: flex; flex-direction: column; gap: 10px;">
+        <li><strong style="color: var(--text-primary);">Zero application changes:</strong> Your app remains ignorant of TLS. No SDKs, no refactoring, no dependency hell.</li>
+        <li><strong style="color: var(--text-primary);">Transparent enforcement:</strong> Every incoming connection is validated before it reaches your code. If the cert is invalid, the connection is rejected at the TLS layer.</li>
+        <li><strong style="color: var(--text-primary);">Service isolation:</strong> Each service gets its own TLSMCP instance, independent of others. Easy to enable/disable per service.</li>
+        <li><strong style="color: var(--text-primary);">Observable:</strong> All TLS handshakes, certificate validation results, and connection metadata are logged and visible in Cyphers Hub.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- CONNECTION LIFECYCLE -->
+<section id="lifecycle">
+  <div class="container">
+    <div style="text-align: center; margin-bottom: 48px;">
+      <div class="section-label" style="justify-content: center;">Connection Flow</div>
+      <h2>Single Connection <span class="accent">Lifecycle</span></h2>
+      <p class="section-desc" style="margin: 0 auto;">
+        Watch what happens, step by step, when a client connects to a TLSMCP-protected service.
+      </p>
+    </div>
+
+    <div class="flow-diagram">
+      <div class="flow-step">
+        <div class="flow-number">1</div>
+        <div>
+          <h4>TCP Connect</h4>
+          <p>Client initiates a TCP connection to TLSMCP's listening port (e.g., :8443). TLSMCP accepts the connection.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-number">2</div>
+        <div>
+          <h4>TLS Handshake (ClientHello)</h4>
+          <p>Client sends a TLS 1.3 ClientHello. TLSMCP responds with ServerHello, using TLSMCP's server certificate (issued by Cyphers Hub).</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-number">3</div>
+        <div>
+          <h4>Client Certificate Presentation</h4>
+          <p>Client presents its certificate in the CertificateVerify message. TLSMCP immediately retrieves the client cert (from its local cache or Cyphers Hub).</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-number">4</div>
+        <div>
+          <h4>Certificate Validation</h4>
+          <p>TLSMCP verifies: issuer (signed by Cyphers Hub CA), not revoked, not expired, CN matches expected service. If validation fails, the handshake is aborted and the connection is closed.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-number">5</div>
+        <div>
+          <h4>Handshake Complete</h4>
+          <p>Both sides derive session keys. TLS channel is encrypted. TLSMCP logs the successful mTLS handshake with client identity, timestamp, and cert details to Cyphers Hub.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-number">6</div>
+        <div>
+          <h4>Request Forwarding</h4>
+          <p>Application data (HTTP requests) flow over the encrypted TLS channel. TLSMCP decrypts, validates that the connection is still valid, and forwards to localhost:app-port.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-number">7</div>
+        <div>
+          <h4>Response Return</h4>
+          <p>Your app sends a response back to TLSMCP. TLSMCP encrypts it with the TLS session key and sends it back to the client.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-number">8</div>
+        <div>
+          <h4>Connection Close / Renewal</h4>
+          <p>Either side can close the TLS connection. If client cert is approaching expiry, TLSMCP suggests renewal via Cyphers Hub. Subsequent connections use fresh certificates.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CERTIFICATE MANAGEMENT UNDER THE HOOD -->
+<section class="arch-section">
+  <div class="container">
+    <div style="text-align: center; margin-bottom: 48px;">
+      <div class="section-label" style="justify-content: center;">Certificate Lifecycle</div>
+      <h2>Certificate Management <span class="accent">Deep Dive</span></h2>
+      <p class="section-desc" style="margin: 0 auto;">
+        How TLSMCP handles certificate issuance, storage, rotation, and revocation across your fleet.
+      </p>
+    </div>
+
+    <div class="solution-grid">
+      <div>
+        <h3 style="margin-bottom: 20px;">Issuance & Storage</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 16px;">
+          When TLSMCP starts, it contacts Cyphers Hub and requests:
+        </p>
+        <ul style="list-style: none; color: var(--text-secondary); font-size: 14px; line-height: 1.8;">
+          <li>• <strong style="color: var(--text-primary);">Server certificate:</strong> For TLS termination. Valid for 1 year, auto-renewed 30 days before expiry.</li>
+          <li>• <strong style="color: var(--text-primary);">Revocation list:</strong> Current revoked client cert serials, cached locally. Updated every 5 minutes or on-demand.</li>
+          <li>• <strong style="color: var(--text-primary);">Trust root:</strong> Cyphers Hub's CA certificate, pinned in TLSMCP config.</li>
+        </ul>
+        <p style="color: var(--text-secondary); margin-top: 16px;">
+          Certificates are stored in secure local storage (encrypted at rest if using encrypted volumes).
+        </p>
+      </div>
+      <div class="terminal">
+        <div class="terminal-bar">
+          <div class="terminal-dot r"></div>
+          <div class="terminal-dot y"></div>
+          <div class="terminal-dot g"></div>
+        </div>
+        <div class="terminal-body">
+          <span class="output"># Initialize TLSMCP</span><br>
+          <span class="prompt">$ </span><span class="cmd">tlsmcp init</span> <span class="flag">--hub-url</span> \<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span class="value">https://hub.cyphers.ai</span> \<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">--service-id</span> <span class="value">api-prod-01</span><br>
+          <span class="success">✓ Initialized</span><br>
+          <span class="output">&nbsp; Server cert: downloaded</span><br>
+          <span class="output">&nbsp; Trust root: pinned</span><br>
+          <span class="output">&nbsp; Revocation: cached (5min TTL)</span><br><br>
+          <span class="output"># Check local certs</span><br>
+          <span class="prompt">$ </span><span class="cmd">tlsmcp cert info</span><br>
+          <span class="output">&nbsp; Server cert:</span><br>
+          <span class="output">&nbsp; &nbsp; Expires: 2026-12-21</span><br>
+          <span class="output">&nbsp; &nbsp; Renews: 2026-11-21</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 60px;">
+      <h3 style="margin-bottom: 20px;">Rotation & Auto-Renewal</h3>
+      <div class="solution-grid">
+        <div>
+          <p style="color: var(--text-secondary); line-height: 1.8; margin-bottom: 16px;">
+            TLSMCP monitors certificate expiry in the background. When a certificate reaches its renewal threshold (30 days for server certs, configurable for client certs), TLSMCP:
+          </p>
+          <ul style="list-style: none; color: var(--text-secondary); font-size: 14px; line-height: 1.8;">
+            <li><strong style="color: var(--text-primary);">1. Requests a fresh certificate</strong> from Cyphers Hub with the same CN and properties.</li>
+            <li><strong style="color: var(--text-primary);">2. Overlaps validity windows</strong> — the old cert remains valid for 3-5 days after the new one is active.</li>
+            <li><strong style="color: var(--text-primary);">3. Switches gracefully</strong> — new TLS connections use the new cert; old connections continue on the old cert.</li>
+            <li><strong style="color: var(--text-primary);">4. Verifies replacement</strong> — ensures the new cert is valid before retiring the old one.</li>
+          </ul>
+          <p style="color: var(--text-secondary); margin-top: 16px;">
+            Result: zero-downtime rotation. Clients never see "certificate not found" or mid-connection revocation.
+          </p>
+        </div>
+        <div class="terminal">
+          <div class="terminal-bar">
+            <div class="terminal-dot r"></div>
+            <div class="terminal-dot y"></div>
+            <div class="terminal-dot g"></div>
+          </div>
+          <div class="terminal-body">
+            <span class="output"># Monitor renewals</span><br>
+            <span class="prompt">$ </span><span class="cmd">tlsmcp renew --watch</span><br><br>
+            <span class="output">14:30:01 INFO: Checking cert</span><br>
+            <span class="output">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; old_cert (exp: 14d)</span><br>
+            <span class="output">14:30:02 INFO: Requesting renewal</span><br>
+            <span class="output">14:30:03 INFO: New cert issued</span><br>
+            <span class="output">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; new_cert (exp: 365d)</span><br>
+            <span class="output">14:30:04 INFO: Validation OK</span><br>
+            <span class="output">14:30:05 INFO: Active for new</span><br>
+            <span class="output">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; conns</span><br>
+            <span class="output">14:30:06 INFO: Overlap: 5d</span><br>
+            <span class="output">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; (old still valid)</span><br>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 60px;">
+      <h3 style="margin-bottom: 20px;">Revocation & Instant Termination</h3>
+      <div class="solution-grid">
+        <div>
+          <p style="color: var(--text-secondary); line-height: 1.8; margin-bottom: 16px;">
+            Revocation is not a CRL download or OCSP check. Cyphers Hub pushes revocation events directly to TLSMCP instances:
+          </p>
+          <ul style="list-style: none; color: var(--text-secondary); font-size: 14px; line-height: 1.8;">
+            <li><strong style="color: var(--text-primary);">1. Admin revokes cert in Hub</strong> (or via API/CLI)</li>
+            <li><strong style="color: var(--text-primary);">2. Hub sends webhook to all proxy instances</strong> with the revoked serial number.</li>
+            <li><strong style="color: var(--text-primary);">3. TLSMCP receives webhook</strong> (< 500ms typical)</li>
+            <li><strong style="color: var(--text-primary);">4. Updates local revocation list</strong> in-memory.</li>
+            <li><strong style="color: var(--text-primary);">5. Terminates active connections</strong> using the revoked cert (if any).</li>
+            <li><strong style="color: var(--text-primary);">6. Rejects new connections</strong> attempting to use revoked cert.</li>
+          </ul>
+          <p style="color: var(--text-secondary); margin-top: 16px; font-weight: 500;">
+            Propagation time: < 1 second across a fleet. No CRL lag, no OCSP latency, no caching delays.
+          </p>
+        </div>
+        <div class="terminal">
+          <div class="terminal-bar">
+            <div class="terminal-dot r"></div>
+            <div class="terminal-dot y"></div>
+            <div class="terminal-dot g"></div>
+          </div>
+          <div class="terminal-body">
+            <span class="output"># At Cyphers Hub:</span><br>
+            <span class="prompt">$ </span><span class="cmd">cyphers revoke</span> <span class="flag">--cert</span> \<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="value">worker-07.staging</span> \<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">--reason</span> \<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="value">key_compromise</span><br>
+            <span class="success">✓ Revoked</span><br><br>
+            <span class="output"># At TLSMCP instance:</span><br>
+            <span class="output">14:35:22 WARN: Revocation received</span><br>
+            <span class="output">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; worker-07</span><br>
+            <span class="output">14:35:22 WARN: Killing 2 active</span><br>
+            <span class="output">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; conns</span><br>
+            <span class="output">14:35:22 WARN: Future conns:</span><br>
+            <span class="output">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; REJECTED</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CONFIGURATION DEEP DIVE -->
+<section>
+  <div class="container">
+    <div style="text-align: center; margin-bottom: 48px;">
+      <div class="section-label" style="justify-content: center;">Configuration</div>
+      <h2>TLSMCP Config <span class="accent">Reference</span></h2>
+      <p class="section-desc" style="margin: 0 auto;">
+        Full example of a TLSMCP configuration file, covering service definitions, TLS policies, and certificate settings.
+      </p>
+    </div>
+
+    <div class="config-block">
+<span class="config-comment"># tlsmcp-config.yaml — TLSMCP Sidecar Configuration</span><br><br>
+<span class="config-key">version:</span> <span class="config-value">1</span><br>
+<span class="config-key">service_id:</span> <span class="config-value">api-prod-01</span><br>
+<span class="config-key">hub_url:</span> <span class="config-value">https://hub.cyphers.ai</span><br>
+<span class="config-key">auth_token:</span> <span class="config-value">tlsmcp_xxxxxxxxxxxx</span><br><br>
+
+<span class="config-comment"># TLS listener on port 8443</span><br>
+<span class="config-key">listen:</span> <span class="config-value">:8443</span><br>
+<span class="config-key">tls:</span><br>
+&nbsp;&nbsp;<span class="config-key">protocol:</span> <span class="config-value">tls13</span><br>
+&nbsp;&nbsp;<span class="config-key">client_auth:</span> <span class="config-value">required</span><br>
+&nbsp;&nbsp;<span class="config-key">cipher_suites:</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="config-value">TLS_AES_256_GCM_SHA384</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;- <span class="config-value">TLS_CHACHA20_POLY1305_SHA256</span><br>
+&nbsp;&nbsp;<span class="config-key">server_cert_renewal_days:</span> <span class="config-value">30</span><br><br>
+
+<span class="config-comment"># Backend service (your app)</span><br>
+<span class="config-key">backend:</span><br>
+&nbsp;&nbsp;<span class="config-key">address:</span> <span class="config-value">localhost:3000</span><br>
+&nbsp;&nbsp;<span class="config-key">protocol:</span> <span class="config-value">http</span><br>
+&nbsp;&nbsp;<span class="config-key">health_check:</span> <span class="config-value">true</span><br>
+&nbsp;&nbsp;<span class="config-key">health_path:</span> <span class="config-value">/health</span><br><br>
+
+<span class="config-comment"># Certificate policies (per service)</span><br>
+<span class="config-key">certificate_policies:</span><br>
+&nbsp;&nbsp;<span class="config-key">client:</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="config-key">allowed_duration:</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="config-key">min:</span> <span class="config-value">1h</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="config-key">max:</span> <span class="config-value">12m</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="config-key">auto_renew:</span> <span class="config-value">true</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="config-key">renewal_before_expiry:</span> <span class="config-value">5m</span><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="config-key">required_cn_pattern:</span> <span class="config-value">^.*\.prod$</span><br><br>
+
+<span class="config-key">logging:</span><br>
+&nbsp;&nbsp;<span class="config-key">level:</span> <span class="config-value">info</span><br>
+&nbsp;&nbsp;<span class="config-key">audit_enabled:</span> <span class="config-value">true</span><br>
+&nbsp;&nbsp;<span class="config-key">hub_sync:</span> <span class="config-value">true</span><br>
+&nbsp;&nbsp;<span class="config-key">metrics_port:</span> <span class="config-value">9090</span><br>
+    </div>
+
+    <div style="margin-top: 48px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px;">
+      <h4 style="color: var(--teal); margin-bottom: 14px;">Key Configuration Notes</h4>
+      <ul style="list-style: none; color: var(--text-secondary); font-size: 13px; line-height: 1.8; display: flex; flex-direction: column; gap: 12px;">
+        <li><strong style="color: var(--text-primary);">client_auth: required</strong> — TLSMCP refuses connections without a valid client certificate.</li>
+        <li><strong style="color: var(--text-primary);">tls13</strong> — Only TLS 1.3. No fallback to older, weaker protocols.</li>
+        <li><strong style="color: var(--text-primary);">server_cert_renewal_days: 30</strong> — TLSMCP will request a renewal 30 days before the server cert expires.</li>
+        <li><strong style="color: var(--text-primary);">health_check</strong> — TLSMCP verifies the backend service is healthy before accepting connections.</li>
+        <li><strong style="color: var(--text-primary);">required_cn_pattern</strong> — Restrict which client certificate CNs are allowed (optional, but recommended).</li>
+        <li><strong style="color: var(--text-primary);">audit_enabled: true</strong> — Every connection handshake is logged and sent to Cyphers Hub.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- DEPLOYMENT MODELS -->
+<section class="arch-section">
+  <div class="container">
+    <div style="text-align: center; margin-bottom: 48px;">
+      <div class="section-label" style="justify-content: center;">Deployment Patterns</div>
+      <h2>TLSMCP Deployment <span class="accent">Models</span></h2>
+      <p class="section-desc" style="margin: 0 auto;">
+        Choose the deployment pattern that fits your architecture and scale.
+      </p>
+    </div>
+
+    <div class="model-grid">
+      <div class="model-card">
+        <h4>Sidecar (Per-Service)</h4>
+        <p>One TLSMCP instance per service. Each service gets its own listening port and certificate policy.</p>
+        <ul>
+          <li>Best for: Microservices, Kubernetes, containers.</li>
+          <li>Scaling: Easy — add TLSMCP container alongside each service pod.</li>
+          <li>Management: Independent per service — no shared state.</li>
+          <li>Example: Kubernetes pod with app container + TLSMCP sidecar container.</li>
+        </ul>
+      </div>
+
+      <div class="model-card">
+        <h4>Gateway (Edge Proxy)</h4>
+        <p>One TLSMCP instance protects multiple services. Clients connect to the gateway; it routes to backends.</p>
+        <ul>
+          <li>Best for: Traditional infrastructure, VMs, multiple services on one host.</li>
+          <li>Scaling: Centralized — one gateway handles all mTLS.</li>
+          <li>Management: Single config file for all services.</li>
+          <li>Example: TLSMCP on port 8443 fronts API, DB, cache services on localhost:3000, 5432, 6379.</li>
+        </ul>
+      </div>
+
+      <div class="model-card">
+        <h4>Hybrid</h4>
+        <p>Sidecar for critical services, gateway for others. Mix and match based on security/performance needs.</p>
+        <ul>
+          <li>Best for: Large deployments with varying requirements.</li>
+          <li>Scaling: Flexible — sidecars for high-traffic, gateway for low-traffic.</li>
+          <li>Management: Per-service policies, unified certificate authority.</li>
+          <li>Example: API servers → sidecars; internal utilities → gateway.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INTEGRATION POINTS -->
+<section id="integration">
+  <div class="container">
+    <div style="text-align: center; margin-bottom: 48px;">
+      <div class="section-label" style="justify-content: center;">Integration</div>
+      <h2>TLSMCP Integrations & <span class="accent">Deployment Environments</span></h2>
+      <p class="section-desc" style="margin: 0 auto;">
+        TLSMCP integrates with the tools and platforms you already use.
+      </p>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <h4>Docker / Containers</h4>
+        <p>Deploy TLSMCP as a sidecar container or in a multi-container pod. Share volumes for certificates. Environment variables for config.</p>
+        <div class="terminal" style="max-width: none; margin-top: 12px; font-size: 11px;">
+          <div class="terminal-bar">
+            <div class="terminal-dot r"></div>
+            <div class="terminal-dot y"></div>
+            <div class="terminal-dot g"></div>
+          </div>
+          <div class="terminal-body">
+            <span class="cmd">docker run -p 8443:8443 \</span><br>
+            &nbsp;&nbsp;<span class="flag">-v</span> <span class="value">config:/etc/tlsmcp</span> \<br>
+            &nbsp;&nbsp;<span class="flag">-e</span> <span class="flag">HUB_URL</span>=<span class="value">https://hub.cyphers.ai</span> \<br>
+            &nbsp;&nbsp;<span class="flag">-e</span> <span class="flag">SERVICE_ID</span>=<span class="value">api-01</span> \<br>
+            &nbsp;&nbsp;cyphers/tlsmcp:latest
+          </div>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+        </div>
+        <h4>Kubernetes</h4>
+        <p>Deploy as a sidecar container in Pods. Use ConfigMaps for config, Secrets for auth tokens. TLSMCP auto-discovers Cyphers Hub via Service DNS.</p>
+        <div class="terminal" style="max-width: none; margin-top: 12px; font-size: 11px;">
+          <div class="terminal-bar">
+            <div class="terminal-dot r"></div>
+            <div class="terminal-dot y"></div>
+            <div class="terminal-dot g"></div>
+          </div>
+          <div class="terminal-body">
+            <span class="cmd">containers:</span><br>
+            &nbsp;&nbsp;- <span class="flag">name:</span> <span class="value">api</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">image:</span> <span class="value">myapp:latest</span><br>
+            &nbsp;&nbsp;- <span class="flag">name:</span> <span class="value">tlsmcp</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span class="flag">image:</span> <span class="value">cyphers/tlsmcp:latest</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <h4>Systemd / VMs</h4>
+        <p>Run TLSMCP as a systemd service. Config in /etc/tlsmcp/, certificates in /var/lib/tlsmcp/. Auto-restart on failure.</p>
+        <div class="terminal" style="max-width: none; margin-top: 12px; font-size: 11px;">
+          <div class="terminal-bar">
+            <div class="terminal-dot r"></div>
+            <div class="terminal-dot y"></div>
+            <div class="terminal-dot g"></div>
+          </div>
+          <div class="terminal-body">
+            <span class="cmd"># /etc/systemd/system/tlsmcp.service</span><br>
+            <span class="flag">[Service]</span><br>
+            <span class="flag">Type</span>=simple<br>
+            <span class="flag">ExecStart</span>=/usr/local/bin/tlsmcp run<br>
+            <span class="flag">Restart</span>=always
+          </div>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <h4>CI/CD Pipelines</h4>
+        <p>Issue short-lived client certs (1-4 hours) for build runners, deployment agents. Certs auto-revoke after job completion. Each job gets its own identity.</p>
+        <div class="terminal" style="max-width: none; margin-top: 12px; font-size: 11px;">
+          <div class="terminal-bar">
+            <div class="terminal-dot r"></div>
+            <div class="terminal-dot y"></div>
+            <div class="terminal-dot g"></div>
+          </div>
+          <div class="terminal-body">
+            <span class="cmd">cyphers issue-ci-cert</span> \<br>
+            &nbsp;&nbsp;<span class="flag">--job</span> <span class="value">$CI_JOB_ID</span> \<br>
+            &nbsp;&nbsp;<span class="flag">--ttl</span> <span class="value">2h</span> \<br>
+            &nbsp;&nbsp;<span class="flag">--output</span> <span class="value">./client.pem</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/><polyline points="17 3 17 9 7 9 7 3"/></svg>
+        </div>
+        <h4>Database Clients</h4>
+        <p>Protect database connections (PostgreSQL, MySQL, MongoDB) with mTLS. Each service gets its own certificate. No shared passwords.</p>
+        <div class="terminal" style="max-width: none; margin-top: 12px; font-size: 11px;">
+          <div class="terminal-bar">
+            <div class="terminal-dot r"></div>
+            <div class="terminal-dot y"></div>
+            <div class="terminal-dot g"></div>
+          </div>
+          <div class="terminal-body">
+            <span class="cmd">psql -h localhost:8443 \</span><br>
+            &nbsp;&nbsp;<span class="flag">--cert</span> <span class="value">client.pem</span> \<br>
+            &nbsp;&nbsp;<span class="flag">--key</span> <span class="value">client-key.pem</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+        </div>
+        <h4>Multi-Cloud / Hybrid</h4>
+        <p>Deploy TLSMCP on AWS, GCP, Azure, on-prem. All instances connect to the same Cyphers Hub. Unified certificate policy across clouds.</p>
+        <div class="terminal" style="max-width: none; margin-top: 12px; font-size: 11px;">
+          <div class="terminal-bar">
+            <div class="terminal-dot r"></div>
+            <div class="terminal-dot y"></div>
+            <div class="terminal-dot g"></div>
+          </div>
+          <div class="terminal-body">
+            <span class="output"># One Hub, many clouds</span><br>
+            <span class="output">Cyphers Hub (centralized)</span><br>
+            <span class="output">&nbsp; ├─ AWS (5 TLSMCP instances)</span><br>
+            <span class="output">&nbsp; ├─ GCP (3 TLSMCP instances)</span><br>
+            <span class="output">&nbsp; └─ On-prem (2 TLSMCP instances)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MONITORING & OBSERVABILITY -->
+<section class="arch-section">
+  <div class="container">
+    <div style="text-align: center; margin-bottom: 48px;">
+      <div class="section-label" style="justify-content: center;">Operations</div>
+      <h2>Monitoring & <span class="accent">Observability</span></h2>
+      <p class="section-desc" style="margin: 0 auto;">
+        Visibility into every mTLS connection, certificate event, and policy decision.
+      </p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 48px;">
+      <div>
+        <h4 style="color: var(--teal); margin-bottom: 16px;">Prometheus Metrics</h4>
+        <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px; line-height: 1.7;">
+          TLSMCP exposes Prometheus metrics on <code style="background: var(--bg-card); padding: 2px 6px; border-radius: 4px;">:9090/metrics</code>:
+        </p>
+        <ul style="list-style: none; color: var(--text-secondary); font-size: 13px; line-height: 1.8; display: flex; flex-direction: column; gap: 8px;">
+          <li><code style="background: var(--bg-card); padding: 2px 6px; border-radius: 4px; color: #7dd3fc;">tlsmcp_connections_total</code> — Total TLS connections (labeled success/failed/revoked).</li>
+          <li><code style="background: var(--bg-card); padding: 2px 6px; border-radius: 4px; color: #7dd3fc;">tlsmcp_handshake_duration_ms</code> — TLS handshake latency histogram.</li>
+          <li><code style="background: var(--bg-card); padding: 2px 6px; border-radius: 4px; color: #7dd3fc;">tlsmcp_cert_expiry_days</code> — Days until cert expiry (gauge).</li>
+          <li><code style="background: var(--bg-card); padding: 2px 6px; border-radius: 4px; color: #7dd3fc;">tlsmcp_revocation_events_total</code> — Number of revocations processed.</li>
+          <li><code style="background: var(--bg-card); padding: 2px 6px; border-radius: 4px; color: #7dd3fc;">tlsmcp_hub_sync_latency_ms</code> — Latency to sync with Cyphers Hub.</li>
+        </ul>
+        <p style="color: var(--text-secondary); margin-top: 16px; font-size: 13px;">
+          Plug into Grafana, Datadog, or any Prometheus-compatible monitoring system.
+        </p>
+      </div>
+
+      <div>
+        <h4 style="color: var(--teal); margin-bottom: 16px;">Cyphers Hub Dashboard</h4>
+        <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 14px; line-height: 1.7;">
+          Real-time visibility in Cyphers Hub:
+        </p>
+        <ul style="list-style: none; color: var(--text-secondary); font-size: 13px; line-height: 1.8; display: flex; flex-direction: column; gap: 8px;">
+          <li><strong style="color: var(--text-primary);">Connection audit log</strong> — Every handshake with client CN, timestamp, status.</li>
+          <li><strong style="color: var(--text-primary);">Certificate inventory</strong> — All active certs per service, expiry times, renewal status.</li>
+          <li><strong style="color: var(--text-primary);">Fleet health</strong> — All TLSMCP instances, their status, uptime, sync latency.</li>
+          <li><strong style="color: var(--text-primary);">Policy timeline</strong> — Changes to TLS policies, new services, revocations (audit trail).</li>
+          <li><strong style="color: var(--text-primary);">Webhook logs</strong> — Delivery status of revocation webhooks to each proxy.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div style="margin-top: 40px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px;">
+      <h4 style="color: var(--teal); margin-bottom: 14px;">Health Endpoints</h4>
+      <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 13px;">
+        TLSMCP exposes health and readiness checks:
+      </p>
+      <ul style="list-style: none; color: var(--text-secondary); font-size: 13px; line-height: 1.8; display: flex; flex-direction: column; gap: 8px;">
+        <li><strong style="color: var(--text-primary);"><code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 4px;">GET /health</code></strong> — Returns 200 if TLSMCP is running and Hub is reachable. Used by K8s liveness probes.</li>
+        <li><strong style="color: var(--text-primary);"><code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 4px;">GET /ready</code></strong> — Returns 200 if TLSMCP is ready to accept connections. Used by K8s readiness probes.</li>
+        <li><strong style="color: var(--text-primary);"><code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 4px;">GET /info</code></strong> — Returns service ID, version, uptime, cert expiry times (JSON).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq" id="faq">
+  <div class="container">
+    <div style="text-align: center; margin-bottom: 48px;">
+      <div class="section-label" style="justify-content: center;">Technical FAQ</div>
+      <h2>How It Works <span class="accent">Questions, Answered</span></h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          What is the performance overhead of TLSMCP?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>TLS handshake adds 5-15ms per new connection (typical for TLS 1.3). Per-request latency is negligible — TLSMCP decrypts and forwards in < 1ms. With connection pooling, the handshake cost is amortized. For reference, a 1000 req/s service with 10-minute connection lifetime sees the handshake cost on only ~1.7 requests, or < 0.02% overhead.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          What cipher suites does TLSMCP support?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>TLSMCP supports TLS 1.3 only. Default cipher suites are TLS_AES_256_GCM_SHA384 and TLS_CHACHA20_POLY1305_SHA256. Both offer 256-bit symmetric encryption and modern AEAD construction. No legacy ciphers (3DES, RC4, MD5) are supported or negotiated. You can restrict ciphers further in config if needed for compliance.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          Can I reload configuration without restarting TLSMCP?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>Yes. TLSMCP watches the config file for changes and hot-reloads. Send SIGHUP to the process or use <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 4px;">tlsmcp reload --config /path/to/config.yaml</code>. Changes to TLS policies, service definitions, and certificate settings take effect in < 500ms without dropping active connections.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          How does TLSMCP handle multi-region deployments?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>All TLSMCP instances connect to a single Cyphers Hub (which can be deployed for high availability in your primary region or a dedicated control plane). Certificate issuance and revocation are managed centrally. Each TLSMCP instance caches the revocation list locally, so revocation propagates in < 1 second across regions. Certificate CNs can include region/zone info for geospatial identity if needed.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          What happens if Cyphers Hub becomes unreachable?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>TLSMCP continues operating with cached data. Existing connections stay alive. New connections are allowed if the client certificate is already cached and not revoked. TLSMCP will attempt to re-sync with the Hub every 30 seconds. Once Hub is reachable, it downloads the latest revocation list and policy updates. Typical downtime: minutes without impact to traffic.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          Can TLSMCP validate client certs from my existing CA?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>Yes. TLSMCP can trust multiple CAs. You can configure it to accept client certs signed by Cyphers Hub, your internal CA, or both. Set <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 4px;">trusted_roots</code> in the config to point to CA certificates. TLSMCP validates the full chain and checks against revocation lists for each CA independently.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          How are client certificate private keys stored?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>Private keys are generated by the service requesting the certificate (e.g., your app, a CI job) and never sent to Cyphers Hub. The Hub issues only the certificate (public key + metadata). You store the private key securely on the client side — in a secret manager (HashiCorp Vault, AWS Secrets Manager), environment variables, or mounted volumes. TLSMCP only reads and uses the certificates and keys you provide; it doesn't manage the private key lifecycle.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          What happens during a certificate rotation with active connections?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>TLSMCP maintains an overlap window (default 5 days). Old and new certificates are both valid during this window. Existing connections using the old certificate continue uninterrupted. New TLS connections use the new certificate. Once the old cert's overlap window closes, it becomes invalid (and any remaining old connections are terminated gracefully). Zero-downtime rotation is guaranteed.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          Can I use TLSMCP with gRPC, WebSockets, or custom protocols?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>Yes. TLSMCP operates at the TLS layer, below the application protocol. It works with HTTP/1.1, HTTP/2 (h2), gRPC, WebSockets, raw TCP, or any protocol that runs over TLS. The backend receives plaintext data regardless of protocol. Just point TLSMCP at your service's backend address and port, and it handles the rest.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
+          What compliance standards does TLSMCP support?
+          <svg class="chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="faq-a">
+          <p>TLSMCP uses TLS 1.3 with modern ciphers, which meets PCI-DSS, HIPAA, SOC 2, and ISO 27001 requirements. Audit logging (enabled by default) tracks every certificate issuance, validation decision, and revocation. You can export audit logs for compliance reporting. Short-lived certificates and auto-rotation support zero-trust and modern security frameworks.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section" id="cta">
+  <div class="container">
+    <div class="section-label" style="justify-content: center;">Ready to Deploy?</div>
+    <h2>Try It Yourself<br><span class="accent">Start With One Service</span></h2>
+    <p class="section-desc">
+      Deploy TLSMCP and issue your first client certificate. See mTLS working in your environment — free.
+    </p>
+    <div class="cta-buttons">
+      <a href="https://www.cyphers.ai" class="btn btn-primary btn-lg">Deploy TLSMCP Free →</a>
+      <a href="https://www.cyphers.ai" class="btn btn-secondary btn-lg">Read the Docs</a>
+    </div>
+  </div>
+</section>
+
+<!-- PRODUCT FAMILY -->
+<section class="product-family">
+  <div class="container">
+    <div style="text-align: center; margin-bottom: 36px;">
+      <p style="font-size: 14px; color: var(--text-muted);">Part of the <a href="https://www.cyphers.ai" style="color: var(--teal); text-decoration: none;"><span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span></a> ecosystem</p>
+    </div>
+    <div class="product-grid">
+      <a href="#" class="product-card">
+        <div class="product-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div>
+          <h4>HTTPS Node</h4>
+          <p>Automated HTTPS for every node. Zero-config TLS termination and certificate management.</p>
+        </div>
+      </a>
+      <a href="/tlsmcp/" class="product-card active">
+        <div class="product-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <div>
+          <h4>TLSMCP <span style="font-size: 11px; color: var(--teal); font-weight: 500; margin-left: 6px;">current</span></h4>
+          <p>mTLS proxy and full certificate lifecycle automation for both client and server certificates.</p>
+        </div>
+      </a>
+      <a href="#" class="product-card">
+        <div class="product-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        </div>
+        <div>
+          <h4>TLS for Claude</h4>
+          <p>Verified machine identity for AI agents and MCP connections. Built on TLSMCP.</p>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a href="https://www.cyphers.ai" class="footer-logo"><span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span></a>
+        <p class="footer-tagline">Machines talk. We make sure no one else is listening.</p>
+        <p class="footer-tagline" style="font-style: italic;">From prototype to production, Vibe to Viable.</p>
+      </div>
+      <div class="footer-col">
+        <h5>Products</h5>
+        <a href="#">HTTPS Node</a>
+        <a href="/tlsmcp/">TLSMCP</a>
+        <a href="#">TLS for Claude</a>
+        <a href="/score/">[ cyphers ] Score</a>
+      </div>
+      <div class="footer-col">
+        <h5>Technical</h5>
+        <a href="/tlsmcp/mtls/">mTLS & Certificates</a>
+        <a href="/tlsmcp/how-it-works/">How It Works</a>
+        <a href="/tlsmcp/server-certs/">Server Certificates</a>
+        <a href="https://www.cyphers.ai">Documentation</a>
+      </div>
+      <div class="footer-col">
+        <h5>Company</h5>
+        <a href="https://www.cyphers.ai">About</a>
+        <a href="https://www.cyphers.ai">Pricing</a>
+        <a href="https://www.cyphers.ai">Contact</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>&copy; 2026 Cyphers. All rights reserved.</span>
+      <div class="footer-legal">
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+        <a href="#">Security</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

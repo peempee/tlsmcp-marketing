@@ -1,0 +1,33 @@
+# Cyphers - Machine Identity Security
+> Machines talk. We make sure no one else is listening.
+
+Cyphers provides enterprise security infrastructure for machine-to-machine communication. The core product is TLSMCP — an mTLS proxy and certificate lifecycle automation platform.
+
+## TLSMCP Product Pages
+
+- [TLSMCP Overview](https://www.cyphers.ai/tlsmcp/): mTLS proxy and certificate lifecycle automation for both client and server certificates. Enforces TLS 1.3, issues unlimited client certificates, and automates renewal across any CA provider.
+
+- [mTLS & Client Certificates](https://www.cyphers.ai/tlsmcp/mtls/): Deep dive into mutual TLS enablement. Covers client certificate issuance (unlimited, any duration from 1 hour to 12 months), sidecar proxy architecture, instant revocation, and the network-layer authentication premise.
+
+- [Server Certificate Automation](https://www.cyphers.ai/tlsmcp/server-certs/): Automated server certificate renewal across Let's Encrypt, internal CAs, and commercial providers. Zero-downtime rotation, fleet monitoring, and failure alerting.
+
+- [Enterprise Security](https://www.cyphers.ai/tlsmcp/enterprise/): Enterprise features including FIPS-aligned cryptography, SOC 2 audit trails, role-based access control, multi-tenant isolation, SIEM integration, and on-premise deployment.
+
+- [How TLSMCP Works](https://www.cyphers.ai/tlsmcp/how-it-works/): Technical architecture deep-dive covering sidecar proxy deployment, mTLS connection lifecycle, certificate management internals, YAML configuration, and deployment models (Docker, Kubernetes, bare metal).
+
+## Platform Features
+
+- [Cyphers Score](https://www.cyphers.ai/score/): Real-time 0-100 security posture rating measuring TLS policy enforcement, certificate strength, revocation configuration, and lifecycle hygiene.
+
+## Key Concepts
+
+- **TLSMCP**: mTLS proxy that deploys as a sidecar alongside existing services. Enforces mutual TLS without code changes or service mesh dependencies.
+- **Cyphers Hub**: Central management plane for certificate policies, issuance, revocation, and audit logging.
+- **Cyphers Score**: Composite security rating across four dimensions — used to assess and improve machine identity posture.
+- **Product Family**: HTTPS Node, TLSMCP, TLS for Claude.
+
+## Company
+
+- Website: https://www.cyphers.ai
+- Products: HTTPS Node, TLSMCP, TLS for Claude
+- Tagline: "Machines talk. We make sure no one else is listening."
