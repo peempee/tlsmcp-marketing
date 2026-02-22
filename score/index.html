@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-page="score">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -63,45 +63,38 @@ body {
 h1, h2, h3, h4 { font-family: 'Bricolage Grotesque', 'IBM Plex Sans', sans-serif; }
 
 /* ── NAV ── */
-nav {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  z-index: 100;
-  background: rgba(10, 15, 26, 0.85);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border);
+nav { position:fixed; top:0; left:0; right:0; z-index:100; background:rgba(10,15,26,0.85); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-bottom:1px solid var(--border); }
+.nav-inner { max-width:1140px; margin:0 auto; padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:64px; }
+.nav-logo { display:flex; align-items:center; text-decoration:none; gap:8px; flex-shrink:0; }
+.nav-logo img { height:36px; width:auto; }
+.nav-links { display:flex; gap:32px; align-items:center; }
+.nav-links a { color:var(--text-secondary); text-decoration:none; font-size:14px; font-weight:500; transition:color 0.2s; }
+.nav-links a:hover { color:var(--text-primary); }
+
+/* Active page */
+html[data-page="mtls"] .nav-links a[data-nav="mtls"],
+html[data-page="server-certs"] .nav-links a[data-nav="server-certs"],
+html[data-page="enterprise"] .nav-links a[data-nav="enterprise"],
+html[data-page="how-it-works"] .nav-links a[data-nav="how-it-works"],
+html[data-page="score"] .nav-links a[data-nav="score"] { color:var(--teal); }
+
+/* Hamburger */
+.nav-hamburger { display:none; flex-direction:column; justify-content:center; gap:5px; background:none; border:none; cursor:pointer; padding:8px; z-index:200; }
+.hamburger-line { display:block; width:22px; height:2px; background:var(--text-primary); border-radius:2px; transition:transform 0.3s,opacity 0.3s; }
+.nav-hamburger[aria-expanded="true"] .hamburger-line:nth-child(1) { transform:translateY(7px) rotate(45deg); }
+.nav-hamburger[aria-expanded="true"] .hamburger-line:nth-child(2) { opacity:0; }
+.nav-hamburger[aria-expanded="true"] .hamburger-line:nth-child(3) { transform:translateY(-7px) rotate(-45deg); }
+
+/* Mobile */
+@media(max-width:900px){
+  .nav-hamburger { display:flex; }
+  .nav-links { display:none; position:fixed; top:64px; left:0; right:0; bottom:0; flex-direction:column; background:rgba(10,15,26,0.97); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); padding:32px 24px; gap:0; overflow-y:auto; }
+  .nav-links.nav-open { display:flex; }
+  .nav-links a { font-size:18px; padding:16px 0; border-bottom:1px solid var(--border); }
+  .nav-links a:last-child { border-bottom:none; }
+  .nav-links .btn-nav { margin-top:8px; text-align:center; justify-content:center; padding:14px 24px; font-size:15px; border-radius:8px; }
+  .nav-links .btn-secondary.btn-nav { margin-top:24px; }
 }
-.nav-inner {
-  max-width: 1140px;
-  margin: 0 auto;
-  padding: 0 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 64px;
-}
-.nav-logo {
-  font-weight: 800;
-  font-size: 18px;
-  color: var(--text-primary);
-  text-decoration: none;
-}
-.cyphers-bracket { color: var(--teal); font-weight: 300; }
-.nav-version { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); margin-left: 10px; font-weight: 400; }
-.nav-links { display: flex; gap: 32px; align-items: center; }
-.nav-links a {
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-size: 14px;
-  font-weight: 500;
-  transition: color 0.2s;
-}
-.nav-links a:hover { color: var(--text-primary); }
-.nav-product-link {
-  font-size: 13px !important;
-  opacity: 0.7;
-}
-.nav-product-link:hover { opacity: 1; }
 
 /* ── BUTTONS ── */
 .btn {
@@ -669,7 +662,6 @@ footer {
 @media (max-width: 900px) {
   .dimensions-grid, .scoring-grid, .comparison-grid { grid-template-columns: 1fr; }
   .improves-grid { grid-template-columns: 1fr; }
-  .nav-links { display: none; }
   .score-hero-card { padding: 36px 28px; }
   .score-hero-number { font-size: 80px; }
   .footer-inner { flex-direction: column; gap: 16px; }
@@ -703,13 +695,21 @@ footer {
 <header>
 <nav>
   <div class="nav-inner">
-    <a href="https://www.cyphers.ai" class="nav-logo"><span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span><span class="nav-version">v1.0</span></a>
+    <a href="/tlsmcp/" class="nav-logo">
+      <img src="/assets/tlsmcp-logo.png" alt="TLSMCP" />
+    </a>
+    <button class="nav-hamburger" aria-label="Toggle menu" aria-expanded="false">
+      <span class="hamburger-line"></span>
+      <span class="hamburger-line"></span>
+      <span class="hamburger-line"></span>
+    </button>
     <div class="nav-links">
-      <a href="/tlsmcp/" class="nav-product-link">TLSMCP</a>
-      <a href="#dimensions">Dimensions</a>
-      <a href="#scoring">Scoring</a>
-      <a href="#before-after">Before &amp; After</a>
-      <a href="https://www.cyphers.ai#score" class="btn btn-primary btn-nav">Check Your Score</a>
+      <a href="/tlsmcp/mtls/" data-nav="mtls">mTLS</a>
+      <a href="/tlsmcp/server-certs/" data-nav="server-certs">Server Certs</a>
+      <a href="/tlsmcp/enterprise/" data-nav="enterprise">Enterprise</a>
+      <a href="/tlsmcp/how-it-works/" data-nav="how-it-works">How It Works</a>
+      <a href="/score/" data-nav="score" class="btn btn-secondary btn-nav">Check Your Score</a>
+      <a href="https://www.cyphers.ai" class="btn btn-primary btn-nav">Get Early Access</a>
     </div>
   </div>
 </nav>
@@ -1047,6 +1047,27 @@ const revealObs = new IntersectionObserver((entries) => {
   });
 }, { threshold: 0.15 });
 document.querySelectorAll('.reveal, .reveal-children').forEach(el => revealObs.observe(el));
+</script>
+
+<script>
+(function(){
+  var btn=document.querySelector('.nav-hamburger');
+  var links=document.querySelector('.nav-links');
+  if(!btn||!links)return;
+  btn.addEventListener('click',function(){
+    var expanded=btn.getAttribute('aria-expanded')==='true';
+    btn.setAttribute('aria-expanded',String(!expanded));
+    links.classList.toggle('nav-open');
+    document.body.style.overflow=expanded?'':'hidden';
+  });
+  links.addEventListener('click',function(e){
+    if(e.target.tagName==='A'){
+      btn.setAttribute('aria-expanded','false');
+      links.classList.remove('nav-open');
+      document.body.style.overflow='';
+    }
+  });
+})();
 </script>
 
 </body>
