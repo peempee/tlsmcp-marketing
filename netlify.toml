@@ -21,6 +21,13 @@
   status = 301
   force = true
 
+# Redirect Netlify subdomain to custom domain
+[[redirects]]
+  from = "https://marketingtlsmcsp.netlify.app/*"
+  to = "https://www.cyphers.ai/:splat"
+  status = 301
+  force = true
+
 # Redirect www to non-www (uncomment if you prefer non-www)
 # [[redirects]]
 #   from = "https://www.cyphers.ai/*"
