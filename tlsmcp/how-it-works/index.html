@@ -17,7 +17,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="How TLSMCP Works | Technical Deep-Dive">
 <meta name="twitter:description" content="Sidecar proxy architecture, mTLS connection lifecycle, config reference, deployment models.">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -30,7 +30,7 @@
   --teal-dim: #1a8a6e;
   --teal-glow: rgba(45, 212, 168, 0.15);
   --teal-glow-strong: rgba(45, 212, 168, 0.25);
-  --text-primary: #e8edf5;
+  --text-primary: #f0f4ff;
   --text-secondary: #8892a8;
   --text-muted: #5a6478;
   --border: #1e2a42;
@@ -38,17 +38,23 @@
   --red: #ff4d6a;
   --amber: #f5a623;
   --green: #2dd4a8;
+  --cyan: #7dd3fc;
+  --dot-grid: rgba(45, 212, 168, 0.06);
 }
 
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg-primary);
   color: var(--text-primary);
   line-height: 1.6;
   overflow-x: hidden;
+  background-image: radial-gradient(var(--dot-grid) 1px, transparent 1px);
+  background-size: 32px 32px;
 }
+
+h1, h2, h3, h4 { font-family: 'Bricolage Grotesque', 'IBM Plex Sans', sans-serif; }
 
 .container {
   max-width: 1140px;
@@ -143,9 +149,9 @@ nav {
   top: 60px;
   left: 50%;
   transform: translateX(-50%);
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, var(--teal-glow) 0%, transparent 70%);
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(ellipse 500px 500px at center, rgba(45, 212, 168, 0.12) 0%, transparent 60%);
   pointer-events: none;
 }
 .hero-badge {
@@ -167,6 +173,11 @@ nav {
   width: 6px; height: 6px;
   background: var(--teal);
   border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.6; }
 }
 h1 {
   font-size: clamp(40px, 5vw, 60px);
@@ -194,21 +205,20 @@ h1 .accent { color: var(--teal); }
 /* ── SECTION STYLES ── */
 section { padding: 100px 0; }
 .section-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--teal-dim);
   text-transform: uppercase;
-  letter-spacing: 1.5px;
-  color: var(--teal);
+  letter-spacing: 2px;
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 0;
 }
-.section-label::before {
-  content: '';
-  width: 20px;
-  height: 1px;
-  background: var(--teal);
+.section-label .num {
+  color: var(--text-muted);
+  margin-right: 8px;
 }
 h2 {
   font-size: clamp(28px, 3.5vw, 40px);
@@ -235,6 +245,10 @@ h4 {
 }
 
 /* ── TERMINAL ── */
+@keyframes scanline {
+  0% { top: 0; }
+  100% { top: 100%; }
+}
 .terminal {
   background: #0c0c0c;
   border: 1px solid var(--border);
@@ -243,6 +257,18 @@ h4 {
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
   max-width: 600px;
+  position: relative;
+  transition: transform 0.3s ease;
+}
+.terminal:hover { transform: scale(1.01); }
+.terminal::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(45, 212, 168, 0.15), transparent);
+  animation: scanline 8s linear infinite;
+  pointer-events: none;
 }
 .terminal-bar {
   background: #1a1a2e;
@@ -313,6 +339,7 @@ h4 {
   border-color: var(--border-light);
   background: var(--bg-card-hover);
   transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(45, 212, 168, 0.06);
 }
 .step-card:hover::before { opacity: 1; }
 .step-number {
@@ -342,8 +369,8 @@ h4 {
 /* ── ARCHITECTURE DIAGRAM ── */
 .arch-section {
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  border-top: 1px dashed var(--border);
+  border-bottom: 1px dashed var(--border);
 }
 .arch-diagram {
   max-width: 900px;
@@ -499,6 +526,7 @@ h4 {
   border-color: var(--border-light);
   background: var(--bg-card-hover);
   transform: translateY(-2px);
+  box-shadow: 0 0 30px rgba(45, 212, 168, 0.06);
 }
 .feature-card:hover::before { opacity: 1; }
 .feature-icon {
@@ -540,6 +568,7 @@ h4 {
 .model-card:hover {
   border-color: var(--border-light);
   background: var(--bg-card-hover);
+  box-shadow: 0 0 30px rgba(45, 212, 168, 0.06);
 }
 .model-card h4 {
   font-size: 16px;
@@ -593,7 +622,7 @@ h4 {
 .config-comment { color: var(--text-muted); }
 
 /* ── FAQ ── */
-.faq { background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.faq { background: var(--bg-secondary); border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border); }
 .faq-list {
   max-width: 720px;
   margin: 40px auto 0;
@@ -673,8 +702,8 @@ h4 {
 /* ── PRODUCT FAMILY ── */
 .product-family {
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  border-top: 1px dashed var(--border);
+  border-bottom: 1px dashed var(--border);
 }
 .product-grid {
   display: grid;
@@ -797,6 +826,38 @@ footer {
 @media (max-width: 600px) {
   .three-step-grid, .feature-grid, .model-grid { grid-template-columns: 1fr; }
 }
+
+.reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-children > * {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.reveal-children.revealed > * {
+  opacity: 1;
+  transform: translateY(0);
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.terminal-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 16px;
+  background: var(--teal);
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 4px;
+}
 </style>
 <script type="application/ld+json">
 {
@@ -827,7 +888,7 @@ footer {
 <header>
 <nav>
   <div class="nav-inner">
-    <a href="/tlsmcp/" class="nav-logo"><img src="/assets/tlsmcp-logo.png" alt="TLSMCP" /></a>
+    <a href="/tlsmcp/" class="nav-logo"><img src="/assets/tlsmcp-logo.png" alt="TLSMCP" /></a><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); margin-left: 10px;">v1.0</span>
     <div class="nav-links">
       <a href="https://www.cyphers.ai" class="nav-parent-brand"><span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span></a>
       <a href="/tlsmcp/">Overview</a>
@@ -867,13 +928,13 @@ footer {
 <section id="three-step">
   <div class="container">
     <div style="text-align: center; margin-bottom: 48px;">
-      <div class="section-label" style="justify-content: center;">Getting Started</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">01</span> // Getting Started</div>
       <h2>Three Steps to Enforced <span class="accent">mTLS</span></h2>
       <p class="section-desc" style="margin: 0 auto;">
         TLSMCP is designed for minimal friction. Deploy the binary, point it at your services, and watch mTLS enforcement activate.
       </p>
     </div>
-    <div class="three-step-grid">
+    <div class="three-step-grid reveal-children">
       <div class="step-card">
         <div class="step-number">1</div>
         <h4>Install</h4>
@@ -942,13 +1003,13 @@ footer {
 <section class="arch-section" id="architecture">
   <div class="container">
     <div style="text-align: center; margin-bottom: 48px;">
-      <div class="section-label" style="justify-content: center;">Core Architecture</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">02</span> // Core Architecture</div>
       <h2>Sidecar Proxy <span class="accent">Architecture</span></h2>
       <p class="section-desc" style="margin: 0 auto;">
         TLSMCP deploys alongside your service, transparently handling TLS termination and certificate validation. Your application never touches TLS.
       </p>
     </div>
-    <div class="arch-diagram">
+    <div class="arch-diagram reveal">
       <div class="arch-row">
         <div class="arch-node client">Client A<br><span style="font-size:11px; opacity:0.7;">with cert</span></div>
         <div style="width: 40px;"></div>
@@ -1009,14 +1070,14 @@ footer {
 <section id="lifecycle">
   <div class="container">
     <div style="text-align: center; margin-bottom: 48px;">
-      <div class="section-label" style="justify-content: center;">Connection Flow</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">03</span> // Connection Flow</div>
       <h2>Single Connection <span class="accent">Lifecycle</span></h2>
       <p class="section-desc" style="margin: 0 auto;">
         Watch what happens, step by step, when a client connects to a TLSMCP-protected service.
       </p>
     </div>
 
-    <div class="flow-diagram">
+    <div class="flow-diagram reveal">
       <div class="flow-step">
         <div class="flow-number">1</div>
         <div>
@@ -1081,7 +1142,7 @@ footer {
 <section class="arch-section">
   <div class="container">
     <div style="text-align: center; margin-bottom: 48px;">
-      <div class="section-label" style="justify-content: center;">Certificate Lifecycle</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">04</span> // Certificate Lifecycle</div>
       <h2>Certificate Management <span class="accent">Deep Dive</span></h2>
       <p class="section-desc" style="margin: 0 auto;">
         How TLSMCP handles certificate issuance, storage, rotation, and revocation across your fleet.
@@ -1218,7 +1279,7 @@ footer {
 <section>
   <div class="container">
     <div style="text-align: center; margin-bottom: 48px;">
-      <div class="section-label" style="justify-content: center;">Configuration</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">05</span> // Configuration</div>
       <h2>TLSMCP Config <span class="accent">Reference</span></h2>
       <p class="section-desc" style="margin: 0 auto;">
         Full example of a TLSMCP configuration file, covering service definitions, TLS policies, and certificate settings.
@@ -1284,14 +1345,14 @@ footer {
 <section class="arch-section">
   <div class="container">
     <div style="text-align: center; margin-bottom: 48px;">
-      <div class="section-label" style="justify-content: center;">Deployment Patterns</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">06</span> // Deployment Patterns</div>
       <h2>TLSMCP Deployment <span class="accent">Models</span></h2>
       <p class="section-desc" style="margin: 0 auto;">
         Choose the deployment pattern that fits your architecture and scale.
       </p>
     </div>
 
-    <div class="model-grid">
+    <div class="model-grid reveal-children">
       <div class="model-card">
         <h4>Sidecar (Per-Service)</h4>
         <p>One TLSMCP instance per service. Each service gets its own listening port and certificate policy.</p>
@@ -1332,14 +1393,14 @@ footer {
 <section id="integration">
   <div class="container">
     <div style="text-align: center; margin-bottom: 48px;">
-      <div class="section-label" style="justify-content: center;">Integration</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">07</span> // Integration</div>
       <h2>TLSMCP Integrations & <span class="accent">Deployment Environments</span></h2>
       <p class="section-desc" style="margin: 0 auto;">
         TLSMCP integrates with the tools and platforms you already use.
       </p>
     </div>
 
-    <div class="feature-grid">
+    <div class="feature-grid reveal-children">
       <div class="feature-card">
         <div class="feature-icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
@@ -1476,7 +1537,7 @@ footer {
 <section class="arch-section">
   <div class="container">
     <div style="text-align: center; margin-bottom: 48px;">
-      <div class="section-label" style="justify-content: center;">Operations</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">08</span> // Operations</div>
       <h2>Monitoring & <span class="accent">Observability</span></h2>
       <p class="section-desc" style="margin: 0 auto;">
         Visibility into every mTLS connection, certificate event, and policy decision.
@@ -1534,10 +1595,10 @@ footer {
 <section class="faq" id="faq">
   <div class="container">
     <div style="text-align: center; margin-bottom: 48px;">
-      <div class="section-label" style="justify-content: center;">Technical FAQ</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">09</span> // Technical FAQ</div>
       <h2>How It Works <span class="accent">Questions, Answered</span></h2>
     </div>
-    <div class="faq-list">
+    <div class="faq-list reveal">
       <div class="faq-item">
         <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">
           What is the performance overhead of TLSMCP?
@@ -1643,8 +1704,8 @@ footer {
 
 <!-- CTA -->
 <section class="cta-section" id="cta">
-  <div class="container">
-    <div class="section-label" style="justify-content: center;">Ready to Deploy?</div>
+  <div class="container" style="border: 1px dashed rgba(45, 212, 168, 0.2); border-radius: 16px; padding: 60px 40px;">
+    <div class="section-label" style="justify-content: center;"><span class="num">10</span> // Ready to Deploy?</div>
     <h2>Try It Yourself<br><span class="accent">Start With One Service</span></h2>
     <p class="section-desc">
       Deploy TLSMCP and issue your first client certificate. See mTLS working in your environment — free.
@@ -1662,7 +1723,7 @@ footer {
     <div style="text-align: center; margin-bottom: 36px;">
       <p style="font-size: 14px; color: var(--text-muted);">Part of the <a href="https://www.cyphers.ai" style="color: var(--teal); text-decoration: none;"><span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span></a> ecosystem</p>
     </div>
-    <div class="product-grid">
+    <div class="product-grid reveal-children">
       <a href="#" class="product-card">
         <div class="product-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -1727,6 +1788,7 @@ footer {
       </div>
     </div>
     <div class="footer-bottom">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px;">build 2026.02</span>
       <span>&copy; 2026 Cyphers. All rights reserved.</span>
       <div class="footer-legal">
         <a href="#">Privacy</a>
@@ -1737,5 +1799,60 @@ footer {
   </div>
 </footer>
 
+<script>
+/* Scroll-triggered reveals */
+const revealObs = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('revealed');
+      if (entry.target.classList.contains('reveal-children')) {
+        Array.from(entry.target.children).forEach((child, i) => {
+          child.style.transitionDelay = i * 100 + 'ms';
+        });
+      }
+      revealObs.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.15 });
+document.querySelectorAll('.reveal, .reveal-children').forEach(el => revealObs.observe(el));
+
+/* Terminal typing effect */
+const termObs = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const body = entry.target.querySelector('.terminal-body');
+      if (!body || body.dataset.typed) return;
+      body.dataset.typed = 'true';
+      const children = Array.from(body.childNodes);
+      const lines = [];
+      let currentLine = [];
+      children.forEach(node => {
+        if (node.nodeName === 'BR') {
+          lines.push(currentLine);
+          currentLine = [];
+        } else {
+          currentLine.push(node);
+        }
+      });
+      if (currentLine.length) lines.push(currentLine);
+      body.innerHTML = '';
+      lines.forEach((lineNodes, i) => {
+        const span = document.createElement('span');
+        span.style.display = 'block';
+        span.style.opacity = '0';
+        span.style.transition = 'opacity 0.15s ease';
+        lineNodes.forEach(n => span.appendChild(n.cloneNode(true)));
+        body.appendChild(span);
+        setTimeout(() => { span.style.opacity = '1'; }, i * 120);
+      });
+      const cursor = document.createElement('span');
+      cursor.className = 'terminal-cursor';
+      setTimeout(() => body.appendChild(cursor), lines.length * 120 + 200);
+      termObs.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('.terminal').forEach(el => termObs.observe(el));
+</script>
 </body>
 </html>

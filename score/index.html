@@ -17,7 +17,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="[ cyphers ] Score | Security Posture Rating">
 <meta name="twitter:description" content="Real-time 0-100 security posture rating for machine identity. Four dimensions, continuous monitoring.">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -30,7 +30,7 @@
   --teal-dim: #1a8a6e;
   --teal-glow: rgba(45, 212, 168, 0.15);
   --teal-glow-strong: rgba(45, 212, 168, 0.25);
-  --text-primary: #e8edf5;
+  --text-primary: #f0f4ff;
   --text-secondary: #8892a8;
   --text-muted: #5a6478;
   --border: #1e2a42;
@@ -38,13 +38,17 @@
   --red: #ff4d6a;
   --amber: #f5a623;
   --green: #2dd4a8;
+  --cyan: #7dd3fc;
+  --dot-grid: rgba(45, 212, 168, 0.06);
 }
 
 html { scroll-behavior: smooth; }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg-primary);
+  background-image: radial-gradient(var(--dot-grid) 1px, transparent 1px);
+  background-size: 32px 32px;
   color: var(--text-primary);
   line-height: 1.6;
   overflow-x: hidden;
@@ -55,6 +59,8 @@ body {
   margin: 0 auto;
   padding: 0 24px;
 }
+
+h1, h2, h3, h4 { font-family: 'Bricolage Grotesque', 'IBM Plex Sans', sans-serif; }
 
 /* ── NAV ── */
 nav {
@@ -81,6 +87,7 @@ nav {
   text-decoration: none;
 }
 .cyphers-bracket { color: var(--teal); font-weight: 300; }
+.nav-version { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); margin-left: 10px; font-weight: 400; }
 .nav-links { display: flex; gap: 32px; align-items: center; }
 .nav-links a {
   color: var(--text-secondary);
@@ -143,9 +150,9 @@ nav {
   top: 60px;
   left: 50%;
   transform: translateX(-50%);
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, var(--teal-glow) 0%, transparent 70%);
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(45, 212, 168, 0.12) 0%, transparent 60%);
   pointer-events: none;
 }
 .hero-badge {
@@ -167,6 +174,11 @@ nav {
   width: 6px; height: 6px;
   background: var(--teal);
   border-radius: 50%;
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.4); }
 }
 h1 {
   font-size: clamp(40px, 5vw, 56px);
@@ -191,12 +203,17 @@ section { padding: 100px 0; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 1.5px;
   color: var(--teal);
   margin-bottom: 16px;
+}
+.section-label .num {
+  color: var(--cyan);
+  font-weight: 400;
 }
 .section-label::before {
   content: '';
@@ -417,8 +434,8 @@ h2 {
 /* ── BEFORE/AFTER ── */
 .comparison {
   background: var(--bg-secondary);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  border-top: 1px dashed var(--border);
+  border-bottom: 1px dashed var(--border);
 }
 .comparison-grid {
   display: grid;
@@ -598,6 +615,56 @@ footer {
 }
 .footer-links a:hover { color: var(--text-secondary); }
 
+/* ── CARD HOVER GLOW ── */
+.dim-card:hover,
+.improve-card:hover,
+.range-item:hover,
+.comparison-card:hover {
+  box-shadow: 0 0 20px var(--teal-glow);
+}
+
+/* ── CTA BORDER ── */
+.cta-section .container {
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  padding: 60px 24px;
+}
+
+/* ── ANIMATIONS ── */
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-children > * {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.reveal-children.revealed > * {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-children.revealed > *:nth-child(1) { transition-delay: 0.05s; }
+.reveal-children.revealed > *:nth-child(2) { transition-delay: 0.10s; }
+.reveal-children.revealed > *:nth-child(3) { transition-delay: 0.15s; }
+.reveal-children.revealed > *:nth-child(4) { transition-delay: 0.20s; }
+.reveal-children.revealed > *:nth-child(5) { transition-delay: 0.25s; }
+.reveal-children.revealed > *:nth-child(6) { transition-delay: 0.30s; }
+
+@keyframes terminal-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
 /* ── RESPONSIVE ── */
 @media (max-width: 900px) {
   .dimensions-grid, .scoring-grid, .comparison-grid { grid-template-columns: 1fr; }
@@ -636,7 +703,7 @@ footer {
 <header>
 <nav>
   <div class="nav-inner">
-    <a href="https://www.cyphers.ai" class="nav-logo"><span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span></a>
+    <a href="https://www.cyphers.ai" class="nav-logo"><span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span><span class="nav-version">v1.0</span></a>
     <div class="nav-links">
       <a href="/tlsmcp/" class="nav-product-link">TLSMCP</a>
       <a href="#dimensions">Dimensions</a>
@@ -680,16 +747,16 @@ footer {
 </section>
 
 <!-- FOUR DIMENSIONS -->
-<section id="dimensions" style="background: var(--bg-secondary); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+<section id="dimensions" style="background: var(--bg-secondary); border-top: 1px dashed var(--border); border-bottom: 1px dashed var(--border);">
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;">Four Dimensions</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">01</span> // Four Dimensions</div>
       <h2>What the Score Measures</h2>
       <p class="section-desc" style="margin: 0 auto;">
         Each dimension is independently scored and weighted. Together they give you a single, actionable number that reflects your real security posture.
       </p>
     </div>
-    <div class="dimensions-grid">
+    <div class="dimensions-grid reveal-children">
       <!-- Dim 1 -->
       <div class="dim-card tls">
         <div class="dim-header">
@@ -757,9 +824,9 @@ footer {
 <!-- HOW SCORING WORKS -->
 <section id="scoring">
   <div class="container">
-    <div class="scoring-grid">
+    <div class="scoring-grid reveal">
       <div>
-        <div class="section-label">How It Works</div>
+        <div class="section-label"><span class="num">02</span> // How It Works</div>
         <h2>One Number.<br>Four Dimensions.<br><span class="accent">Real-Time Updates.</span></h2>
         <p class="section-desc" style="margin-bottom: 24px;">
           The <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Score is calculated continuously by the Cyphers Hub control plane. It scans every connected endpoint, evaluates all four dimensions, and produces a weighted composite score.
@@ -808,13 +875,13 @@ footer {
 <section class="comparison" id="before-after">
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;">The Difference</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">03</span> // The Difference</div>
       <h2>Before and After TLSMCP</h2>
       <p class="section-desc" style="margin: 0 auto;">
         A typical infrastructure before and after deploying TLSMCP and connecting to Cyphers Hub.
       </p>
     </div>
-    <div class="comparison-grid">
+    <div class="comparison-grid reveal-children">
       <div class="comparison-card before">
         <div class="comparison-label">Before TLSMCP</div>
         <div class="comparison-score">34<span>/100</span></div>
@@ -877,13 +944,13 @@ footer {
 <section>
   <div class="container">
     <div style="text-align: center;">
-      <div class="section-label" style="justify-content: center;">Improve Your Score</div>
+      <div class="section-label" style="justify-content: center;"><span class="num">04</span> // Improve Your Score</div>
       <h2>What Moves the Needle</h2>
       <p class="section-desc" style="margin: 0 auto;">
         Every action you take with TLSMCP directly impacts your <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Score. Here's what makes the biggest difference.
       </p>
     </div>
-    <div class="improves-grid">
+    <div class="improves-grid reveal-children">
       <div class="improve-card">
         <div class="improve-icon">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -933,7 +1000,7 @@ footer {
 <!-- CTA -->
 <section class="cta-section">
   <div class="container">
-    <div class="section-label" style="justify-content: center;">Find Out Where You Stand</div>
+    <div class="section-label" style="justify-content: center;"><span class="num">05</span> // Find Out Where You Stand</div>
     <h2>Check Your <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Score</h2>
     <p class="section-desc">
       See how your infrastructure measures up across all four dimensions. Free, instant, and no installation required.
@@ -953,6 +1020,7 @@ footer {
       <div class="footer-brand">
         <span class="cyphers-bracket">[</span> cyphers <span class="cyphers-bracket">]</span> Score &mdash;
         part of the <a href="https://www.cyphers.ai">cyphers.ai</a> platform
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); margin-left: 8px;">build 2026.02</span>
       </div>
       <div class="footer-links">
         <a href="/tlsmcp/">TLSMCP</a>
@@ -962,6 +1030,24 @@ footer {
     </div>
   </div>
 </footer>
+
+<script>
+/* Scroll-triggered reveals */
+const revealObs = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('revealed');
+      if (entry.target.classList.contains('reveal-children')) {
+        Array.from(entry.target.children).forEach((child, i) => {
+          child.style.transitionDelay = i * 100 + 'ms';
+        });
+      }
+      revealObs.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.15 });
+document.querySelectorAll('.reveal, .reveal-children').forEach(el => revealObs.observe(el));
+</script>
 
 </body>
 </html>
