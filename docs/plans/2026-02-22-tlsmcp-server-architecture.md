@@ -484,28 +484,7 @@ mtls:
 - Dual audit trail — logical (OBO `act` claims) + physical (cert chain)
 - Forensic-grade attribution (which user authorized which agent on which machine)
 
-##### Mode 4: Hub-Issued Tokens (Future)
-
-Cyphers Hub acts as the OAuth 2.1 authorization server, issuing both certificates *and* tokens. This eliminates the dependency on a third-party IdP entirely — one control plane for all identity.
-
-**Best for:** Greenfield deployments, teams without existing IdP, organizations wanting unified cert + token management.
-
-```yaml
-hub:
-  url: https://hub.cyphers.ai
-  auth_mode: hub_oauth              # Hub is the authorization server
-  # No external IdP needed — Hub issues both certs and tokens
-```
-
-**What you get:**
-- Everything from Mode 3, but with a single control plane
-- Hub issues OAuth tokens alongside certificates
-- Token-to-cert binding is automatic (Hub controls both)
-- Unified revocation — revoking a cert also invalidates associated tokens
-
-**Status:** Future build (Phase 9). The Hub API contract (section 2.3) already supports the necessary endpoints. Implementation requires adding an OAuth 2.1 authorization server to the Hub.
-
-##### Mode 5: Static Service Tokens (Transitional)
+##### Mode 4: Static Service Tokens (Transitional)
 
 For quick deployments where OAuth infrastructure isn't available yet. Uses the `tlsmcp_xxxxxxxxxxxx` service tokens already defined for Hub API authentication. Not a long-term solution — intended as a stepping stone to Mode 1 or 2.
 
@@ -529,28 +508,30 @@ hub:
 - Revocation enforcement (no client certs to revoke)
 - Token binding (no certs to bind to)
 
-**Migration path:** Start with Mode 5, enable mTLS (Mode 1) once certs are provisioned, add OAuth (Mode 2) when IdP is ready.
+**Migration path:** Start with Mode 4, enable mTLS (Mode 1) once certs are provisioned, add OAuth (Mode 2) when IdP is ready.
 
 ##### Mode Comparison
 
-| Capability | Mode 1 (mTLS) | Mode 2 (+ OAuth) | Mode 3 (+ OBO) | Mode 4 (Hub) | Mode 5 (Static) |
-|-----------|:---:|:---:|:---:|:---:|:---:|
-| Machine identity | Yes | Yes | Yes | Yes | No |
-| Instant revocation | Yes | Yes | Yes | Yes | No |
-| Audit trail | Cert-level | Cert + user | Cert + user + chain | Unified | Basic |
-| Authorization scopes | No | Yes | Yes | Yes | No |
-| User identity | No | Yes | Yes | Yes | No |
-| Delegation chains | No | No | Yes | Yes | No |
-| Token binding (RFC 8705) | N/A | Optional | Yes | Automatic | N/A |
-| External IdP required | No | Yes | Yes | No | No |
-| Setup complexity | Low | Medium | High | Low (future) | Minimal |
-| Compliance readiness | Good | Strong | Full | Full | Minimal |
+| Capability | Mode 1 (mTLS) | Mode 2 (+ OAuth) | Mode 3 (+ OBO) | Mode 4 (Static) |
+|-----------|:---:|:---:|:---:|:---:|
+| Machine identity | Yes | Yes | Yes | No |
+| Instant revocation | Yes | Yes | Yes | No |
+| Audit trail | Cert-level | Cert + user | Cert + user + chain | Basic |
+| Authorization scopes | No | Yes | Yes | No |
+| User identity | No | Yes | Yes | No |
+| Delegation chains | No | No | Yes | No |
+| Token binding (RFC 8705) | N/A | Optional | Yes | N/A |
+| External IdP required | No | Yes | Yes | No |
+| Setup complexity | Low | Medium | High | Minimal |
+| Compliance readiness | Good | Strong | Full | Minimal |
 
 ##### Recommendation
 
-**Start with Mode 1** (mTLS only). It delivers 80% of the security value with 20% of the complexity. Machine identity, instant revocation, and audit trails are the foundation — everything else layers on top. Add OAuth (Mode 2) when you need user-level authorization. Add OBO (Mode 3) when you have multi-agent delegation workflows.
+**Start with Mode 1** (mTLS only). It delivers 80% of the security value with 20% of the complexity. Machine identity, instant revocation, and audit trails are the foundation — everything else layers on top. Add OAuth (Mode 2) when you need user-level authorization. Add OBO (Mode 3) when you have multi-agent delegation workflows. Use Mode 4 (static tokens) only as a transitional stepping stone during initial setup.
 
-The key insight: **mTLS is the floor, not the ceiling.** OAuth is optional enrichment. Most MCP deployments today have *neither* — starting with mTLS puts you ahead of 92% of the ecosystem (per the February 2026 registry audit showing only 8.5% OAuth adoption).
+The key insight: **mTLS is the floor, not the ceiling.** OAuth is optional enrichment — and it's *their* OAuth, not ours. TLSMCP integrates with existing identity providers (Azure Entra ID, Okta, Auth0, Keycloak, Google Cloud Identity) rather than competing with them. We own the machine identity layer; they own authorization. These are complementary, not competing.
+
+Most MCP deployments today have *neither* — starting with mTLS puts you ahead of 92% of the ecosystem (per the February 2026 registry audit showing only 8.5% OAuth adoption).
 
 #### 2.4d MCP Server Interface
 
@@ -1044,7 +1025,7 @@ TLSMCP has evolved beyond a simple TLS proxy. It is a **comprehensive MCP securi
 | Security Domain | Capabilities |
 |-----------------|-------------|
 | **Identity (2.4a-b)** | mTLS machine identity, OAuth 2.1 passthrough, OBO delegation chains, RFC 8705 token binding |
-| **Authentication Modes (2.4c)** | Five deployment modes from mTLS-only to full OAuth + OBO, progressive adoption path |
+| **Authentication Modes (2.4c)** | Four deployment modes from mTLS-only to full OAuth + OBO, progressive adoption path |
 | **MCP Server (2.4d)** | MCP tool exposure, cert management via natural language, AI-native security operations |
 | **Threat Mitigation (2.4e)** | Origin validation, session binding, tool poisoning/shadowing detection, rug pull defense |
 | **Sampling Security (2.4f)** | Rate limiting, content inspection, quota enforcement, prompt injection detection |
