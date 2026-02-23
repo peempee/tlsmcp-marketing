@@ -853,7 +853,7 @@ mcp:
 
 **2. Tool Integrity Verification**
 
-Beyond schema pinning (2.4d), TLSMCP integrates with attestation systems like [Credence](https://credence.securingthesingularity.com/) to verify MCP server provenance:
+Beyond schema pinning (2.4e), TLSMCP integrates with attestation systems like [Credence](https://credence.securingthesingularity.com/) to verify MCP server provenance:
 
 ```yaml
 mcp:
@@ -1076,7 +1076,11 @@ tlsmcp/
 │   │   │   ├── certs.rs        # Cert loading, hot-reload, storage
 │   │   │   ├── revocation.rs   # CRL/OCSP cache + refresh
 │   │   │   ├── metrics.rs      # Connection stats, reporting
-│   │   │   └── hub.rs          # Hub API client
+│   │   │   ├── hub.rs          # Hub API client
+│   │   │   ├── gateway.rs      # Triple Gate Pattern orchestration, rate limiting
+│   │   │   ├── dlp.rs          # DLP scanning engine, pattern matching, redaction
+│   │   │   ├── session.rs      # Session-to-cert binding, task binding
+│   │   │   └── schema_pin.rs   # Tool schema pinning, change detection
 │   │   └── Cargo.toml
 │   ├── tlsmcp-cli/             # CLI subcommands (cert, status, score)
 │   │   ├── src/
@@ -1091,19 +1095,28 @@ tlsmcp/
 │   │   │   ├── tools.rs        # Tool definitions (issue, revoke, scan, score)
 │   │   │   ├── resources.rs    # Resource definitions (certs, score, audit)
 │   │   │   ├── handlers.rs     # Tool execution logic
-│   │   │   └── transport.rs    # stdio + SSE transport layer
+│   │   │   ├── transport.rs    # stdio + SSE transport layer
+│   │   │   ├── sampling.rs     # Sampling rate limits, content inspection
+│   │   │   └── a2a.rs          # A2A protocol support, Agent Card pinning
 │   │   └── Cargo.toml
 │   └── tlsmcp-common/          # Shared types, errors, config structs
 │       ├── src/
 │       │   ├── lib.rs
 │       │   ├── types.rs        # CertId, ServiceId, PolicyRule, etc.
 │       │   ├── error.rs        # Error types
-│       │   └── config.rs       # Shared config structures
+│       │   ├── config.rs       # Shared config structures
+│       │   └── dlp_patterns.rs # PII/credential/PHI pattern definitions
 │       └── Cargo.toml
 ├── tests/                      # Integration tests
 │   ├── proxy_test.rs
 │   ├── mtls_test.rs
-│   └── cert_lifecycle_test.rs
+│   ├── cert_lifecycle_test.rs
+│   ├── gateway_test.rs         # Triple Gate, rate limiting
+│   ├── dlp_test.rs             # Pattern matching, redaction
+│   ├── session_binding_test.rs # Session/task cert binding
+│   ├── schema_pin_test.rs      # Tool integrity
+│   ├── sampling_test.rs        # Rate limits, content inspection
+│   └── a2a_test.rs             # Agent Card pinning
 ├── examples/
 │   └── tlsmcp.yaml             # Example config
 └── README.md
@@ -1176,6 +1189,53 @@ mcp:
   transport: stdio              # stdio | sse
   sse_address: "127.0.0.1:3001" # Only when transport: sse
   self_secure: false            # Require mTLS for MCP connections (SSE only)
+
+  # Origin validation (2.4e)
+  origin_validation:
+    allowed_origins: []
+    reject_missing_origin: false
+
+  # Sampling controls (2.4f)
+  sampling:
+    enabled: true
+    rate_limit: 10/min
+    max_tokens_per_request: 4096
+
+  # Rate limiting (2.4g)
+  rate_limiting:
+    enabled: true
+    per_client:
+      requests_per_second: 100
+      burst_capacity: 200
+
+  # Tool integrity (2.4e)
+  tool_integrity:
+    pin_schemas: false
+    on_schema_change: alert
+    schema_store: /var/lib/tlsmcp/tool-schemas/
+
+  # DLP (2.4j)
+  dlp:
+    enabled: false
+    scan_requests: true
+    scan_responses: true
+
+  # Container isolation (2.4h)
+  container_isolation:
+    enabled: false
+
+  # Tasks (2.4g)
+  tasks:
+    bind_to_cert: true
+    max_concurrent: 50
+    max_duration: 3600s
+
+# A2A protocol (2.4i)
+a2a:
+  enabled: false
+  pin_agent_cards: true
+  on_card_change: alert
+  delegation_depth: 5
 ```
 
 ---
@@ -1320,19 +1380,22 @@ Watch cert files for changes, rebuild `SslAcceptor` without dropping connections
 - [ ] SIEM-compatible log format
 - [ ] RBAC policy enforcement from Hub
 
-### Phase 7 — MCP Security Platform
-- [ ] Sampling rate limiting + content inspection
+### Phase 7 — MCP Security Gateway
 - [ ] Triple Gate Pattern implementation (identity → policy → audit)
-- [ ] MCP Tasks primitive security (cert binding, state transition controls)
-- [ ] DLP scanning engine (PII, credentials, PHI detection)
+- [ ] Rate limiting + abuse prevention (per-client, per-tool, global)
 - [ ] Tool schema pinning + change detection + alerting
-- [ ] Container isolation for MCP servers (Docker/podman sandboxing)
+- [ ] Session-to-cert binding + MCP Tasks primitive security
+- [ ] Sampling rate limiting + content inspection
 - [ ] Filesystem boundary enforcement (roots, path traversal prevention)
+
+### Phase 8 — Advanced Security & Compliance
+- [ ] DLP scanning engine (PII, credentials, PHI detection)
+- [ ] Container isolation for MCP servers (Docker/podman sandboxing)
 - [ ] A2A protocol support (Agent Card pinning, delegation chain verification)
 - [ ] Attestation verification (Credence integration)
-- [ ] Rate limiting + abuse prevention (per-client, per-tool, global)
+- [ ] SBOM generation and validation
 
-### Phase 8 — Production Hardening
+### Phase 9 — Production Hardening
 - [ ] Connection pooling + keep-alive to backend
 - [ ] Graceful shutdown (drain connections)
 - [ ] Health check endpoint
@@ -1541,6 +1604,105 @@ Building to NDcPP v3.0e / PKG_TLS v2.0 from day one, with an eye on v4.0 (CC:202
 **Entropy documentation** (Appendix D of NDcPP) required for FCS_RBG_EXT — must provide design description, entropy justification, operating conditions, and health testing documentation for our random number generation.
 
 The architecture supports all required SFRs. Formal certification is a business decision based on customer demand, but building compliant from day one makes future certification a documentation exercise, not a re-architecture.
+
+---
+
+## 10. Deployment Patterns
+
+TLSMCP supports three deployment modes, from simplest to most orchestrated.
+
+### Standalone Binary
+
+Run `tlsmcp run` as a systemd service alongside the backend application.
+
+```ini
+# /etc/systemd/system/tlsmcp.service
+[Unit]
+Description=TLSMCP mTLS Sidecar Proxy
+After=network.target
+
+[Service]
+Type=notify
+ExecStart=/usr/local/bin/tlsmcp run --config /etc/tlsmcp/tlsmcp.yaml
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Docker Sidecar
+
+Docker Compose with TLSMCP container + backend container on a shared network.
+
+```yaml
+# docker-compose.yml
+version: "3.8"
+services:
+  tlsmcp:
+    image: ghcr.io/cyphers/tlsmcp:latest
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./tlsmcp.yaml:/etc/tlsmcp/tlsmcp.yaml:ro
+      - certs:/var/lib/tlsmcp/certs
+    depends_on:
+      - backend
+
+  backend:
+    image: my-app:latest
+    expose:
+      - "3000"
+
+volumes:
+  certs:
+```
+
+TLSMCP terminates TLS on port 8443 and forwards to the backend on the shared Docker network at `backend:3000`.
+
+### Kubernetes Sidecar
+
+Init container for cert provisioning + sidecar container for ongoing proxy.
+
+```yaml
+# Pod spec (excerpt)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-app
+spec:
+  initContainers:
+    - name: tlsmcp-init
+      image: ghcr.io/cyphers/tlsmcp:latest
+      command: ["tlsmcp", "cert", "issue", "--type", "server", "--output", "/certs"]
+      volumeMounts:
+        - name: certs
+          mountPath: /certs
+  containers:
+    - name: tlsmcp
+      image: ghcr.io/cyphers/tlsmcp:latest
+      args: ["run", "--config", "/etc/tlsmcp/tlsmcp.yaml"]
+      ports:
+        - containerPort: 8443
+      volumeMounts:
+        - name: certs
+          mountPath: /var/lib/tlsmcp/certs
+        - name: config
+          mountPath: /etc/tlsmcp
+    - name: backend
+      image: my-app:latest
+      ports:
+        - containerPort: 3000
+  volumes:
+    - name: certs
+      emptyDir: {}
+    - name: config
+      configMap:
+        name: tlsmcp-config
+```
+
+The init container provisions certificates before the app starts. The sidecar container runs the proxy for the lifetime of the pod, handling TLS termination, cert rotation, and revocation checking.
 
 ---
 
