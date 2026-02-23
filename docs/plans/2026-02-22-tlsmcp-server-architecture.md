@@ -10,7 +10,7 @@
 
 TLSMCP is a lightweight mTLS sidecar proxy written in Rust. It deploys alongside each service, terminates TLS 1.3, validates client certificates, manages server certificate lifecycle, and reports posture to the Cyphers Hub control plane.
 
-TLSMCP also serves a dual role in the MCP (Model Context Protocol) ecosystem: it **secures MCP servers** with mTLS authentication, and it **exposes its own capabilities as an MCP server** so AI agents can manage certificates and security posture through tool calls.
+TLSMCP is the **machine identity layer for the MCP ecosystem**. The MCP spec added OAuth 2.1 for authorization — what a token is allowed to do. TLSMCP answers the harder question: *who is at the other end of every connection?* It provides continuous certificate-based identity from issuance to revocation across your entire fleet, and exposes its own capabilities as an MCP server so AI agents can manage security posture through tool calls.
 
 ```
                           ┌─────────────────────────────┐
@@ -229,30 +229,82 @@ Sidecars must remain functional if the Hub is temporarily unreachable:
 - **No new issuance** — `cert issue` fails with clear error until Hub is back
 - **Logging** — sidecar logs Hub connectivity status for monitoring
 
-### 2.4 MCP Interface
+### 2.4 MCP Interface — The Machine Identity Layer for AI
 
-TLSMCP has a dual relationship with the Model Context Protocol:
+#### The Problem
+
+MCP has no native machine identity layer.
+
+The June 2025 spec added OAuth 2.1 for authorization — *what is this token allowed to do?* But OAuth doesn't answer the harder question: **who is at the other end of this connection?**
+
+Bearer tokens can be leaked, shared, replayed, and intercepted. They prove possession, not identity. When an AI agent connects to an MCP server today, you know what the token permits. You don't know *which machine* presented it, you can't revoke access in real-time, and you have no cryptographic proof of who connected.
+
+Setting up an Nginx reverse proxy with client certs fixes this for a single server at a single point in time. But then:
+
+- Who rotates the server cert before it expires at 3am?
+- Who issues and revokes client certs for each AI agent across a fleet?
+- Who notices when a cert is about to expire across 50 services?
+- Who revokes a compromised agent's access in under a second?
+- Who audits which agent accessed which MCP tool?
+- Who measures your overall security posture?
+- Who makes all of this work in a FIPS-regulated environment?
+
+The answer with Nginx is: you, manually, or with a pile of scripts you build and maintain.
+
+#### The Position
+
+**OAuth 2.1 = authorization** (what are you allowed to do)
+**TLSMCP = machine identity** (who are you, prove it, and we're watching)
+
+These aren't competing — they stack:
+
+```
+AI Agent → OAuth 2.1 token + client cert → mTLS (TLSMCP) → MCP Server
+```
+
+TLSMCP provides the **continuous machine identity lifecycle** that the MCP ecosystem is missing: issuance, validation, rotation, revocation, audit, and posture scoring — from first connection to decommission, across every service in your fleet.
+
+No one else is building this for MCP.
 
 #### 2.4a Securing MCP Servers (Sidecar Mode)
 
-TLSMCP deploys as a sidecar in front of any MCP server, adding mTLS authentication to a protocol that currently has none.
+TLSMCP deploys as a sidecar in front of any MCP server, adding cryptographic machine identity to both MCP transport modes.
+
+**Remote MCP servers (Streamable HTTP):**
 
 ```
-AI Agent (with client cert) → mTLS 1.3 → TLSMCP Sidecar → stdio/HTTP → MCP Server
+AI Agent (OAuth token + client cert) → mTLS 1.3 → TLSMCP → HTTP → MCP Server
 ```
 
-**The problem this solves:** MCP has no authentication standard. Any client that discovers an MCP endpoint can connect. There is no identity, no revocation, no audit trail for AI-to-tool communication.
+The MCP spec mandates TLS 1.2+ for Streamable HTTP transport. TLSMCP enforces TLS 1.3, adds mTLS client identity, and layers under the spec's OAuth 2.1 authorization — providing the transport security that OAuth tokens ride on.
 
-**What TLSMCP adds:**
-- Every AI agent/client must present a valid client certificate
-- Per-agent identity — each agent gets its own cert, fully auditable
-- Instant revocation — compromised agent cut off in < 1 second, fleet-wide
-- Audit trail — which agent accessed which MCP tool, when
-- Zero changes to the MCP server code
+**Local MCP servers (stdio) in multi-tenant environments:**
+
+```
+Agent A (cert A) → mTLS → TLSMCP → stdio → MCP Server (isolated)
+Agent B (cert B) → mTLS → TLSMCP → stdio → MCP Server (isolated)
+```
+
+The spec doesn't address isolation for local stdio servers when multiple agents or tenants share a machine. TLSMCP wraps local servers with per-agent certificate identity, filling a gap the spec doesn't cover.
+
+**What TLSMCP adds beyond "TLS in front of a server":**
+
+| Capability | Nginx + manual certs | TLSMCP |
+|-----------|---------------------|--------|
+| TLS termination | Yes (point-in-time) | Yes (continuous) |
+| Client cert validation | Manual CA setup | Automatic via Hub CA |
+| Per-agent identity | Manual cert issuance | Automatic — issue via CLI, API, or MCP tool |
+| Cert rotation | Manual / cron scripts | Zero-downtime auto-renewal |
+| Revocation | Update CRL manually | < 1 second, fleet-wide, webhook-pushed |
+| Audit trail | Parse access logs | Structured events: which agent, which tool, when |
+| Fleet visibility | Per-server dashboards | [cyphers] Score across all services |
+| FIPS compliance | Manual OpenSSL config | FIPS 140-3 validated provider, single config flag |
+| Cert expiry monitoring | External tooling | Built-in, alerts via Hub |
+| Multi-service consistency | Repeat config per server | One policy, entire fleet |
 
 #### 2.4b TLSMCP as an MCP Server
 
-TLSMCP exposes its own cert management and security operations as MCP tools, allowing AI agents to manage security posture through natural language.
+TLSMCP exposes its own cert management and security operations as MCP tools, making machine identity **AI-native** — manageable through natural language and composable with other agent workflows.
 
 **MCP Tools:**
 
@@ -279,15 +331,28 @@ TLSMCP exposes its own cert management and security operations as MCP tools, all
 - *"Scan api.example.com and tell me what's wrong with its TLS config"* → `tlsmcp_scan` → analysis → `tlsmcp_cert_issue` → `tlsmcp_scan` → verify fix
 - *"Revoke all certs for the compromised service"* → `tlsmcp_cert_list` → `tlsmcp_cert_revoke` (for each)
 - *"What's our score and how do we improve it?"* → `tlsmcp_score` → actionable recommendations
+- *"A model was compromised — lock it out everywhere"* → `tlsmcp_cert_list` → `tlsmcp_cert_revoke` (all certs) → `tlsmcp_scan` → verify isolation
 
-**Transport:** stdio (local) and SSE over HTTP (remote). When running as an MCP server, TLSMCP can optionally protect itself with its own mTLS — an MCP server secured by the very proxy it exposes.
+**Transport:** stdio (local) and Streamable HTTP / SSE (remote). When running as an MCP server, TLSMCP can protect itself with its own mTLS — an MCP server secured by the very proxy it exposes.
 
-**Why this matters:**
-- **No dashboard required** — agents manage certs through tool calls, not UI clicks
-- **Automated incident response** — detect threat → revoke certs → rescan → verify, no human in the loop
-- **Continuous posture management** — agent monitors score and acts when it drops
-- **Composable** — chains with other MCP tools in an agent's workflow
-- **First mover** — no existing solution authenticates and audits AI-to-tool connections
+#### Why This Matters
+
+**For security teams:**
+- Cryptographic machine identity for every AI agent connection — not just tokens
+- Instant revocation when an agent is compromised — not waiting for token expiry
+- Full audit trail of AI-to-tool interactions — not parsing access logs
+- Continuous posture scoring — not periodic audits
+- FIPS 140-3 and NIAP NDcPP compliance — not "we'll get to it"
+
+**For platform teams:**
+- One binary, one config, one policy across the fleet — not per-server Nginx configs
+- Zero-downtime cert rotation — not 3am pages
+- AI-native management — agents manage their own identity lifecycle via MCP tools
+
+**For the MCP ecosystem:**
+- The missing machine identity layer that OAuth 2.1 doesn't provide
+- First product purpose-built for securing AI-to-tool connections
+- Complements the spec rather than competing with it
 
 ---
 
