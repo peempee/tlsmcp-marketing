@@ -372,6 +372,31 @@ mtls:
 
 **RFC 8705 (OAuth 2.0 Mutual-TLS Client Authentication):** The `bind_token_to_cert` option enforces [RFC 8705](https://datatracker.ietf.org/doc/html/rfc8705) — the authorization server embeds the client cert fingerprint in the token's `cnf` (confirmation) claim. TLSMCP verifies that the presenting cert matches the fingerprint in the token. This is the strongest form of token binding: the token is cryptographically useless without the matching private key.
 
+**Client types — TLSMCP handles all of them identically:**
+
+The mTLS layer doesn't care *what kind* of client connects. It answers the same question every time: which machine is at the other end? What changes is the OAuth layer above it.
+
+| Client type | OAuth flow | TLSMCP cert issued to | What's proven |
+|------------|-----------|----------------------|--------------|
+| **AI agent** (on behalf of user) | OBO with `act` claim | The agent's machine | Machine X is acting as agent-finance-v1 on behalf of user-123 |
+| **Human user** (via app) | Auth code + PKCE | The application server or user's device | Machine Y is running the portal app, user authenticated via OAuth |
+| **Service-to-service** (no user) | Client credentials | The service host | Machine Z is the payment-api service |
+| **Multi-hop agent chain** | Chained OBO with nested `act` | Each machine in the chain | Machine A → B → C, each hop cert-verified |
+
+The cert proves the machine. The token proves the authorization. They're independent layers that stack.
+
+For **human users**, the client cert is typically issued to the **application** they're using (web server, desktop app, mobile backend), not to the user personally. The user authenticates to the application via OAuth; the application authenticates to the MCP server via its cert. Both are validated independently:
+
+```
+Human user
+  → authenticates to app (OAuth 2.1 + PKCE → token with user identity)
+    → app connects to MCP server
+      → mTLS handshake (TLSMCP validates app's cert — proves which app server)
+        → OAuth token forwarded (proves which user, what permissions)
+```
+
+This means TLSMCP works for every client pattern in the MCP ecosystem without configuration changes — the same sidecar, same cert policy, same audit trail regardless of whether the client is a human, an autonomous agent, or a backend service.
+
 #### 2.4c TLSMCP as an MCP Server
 
 TLSMCP exposes its own cert management and security operations as MCP tools, making machine identity **AI-native** — manageable through natural language and composable with other agent workflows.
