@@ -302,7 +302,77 @@ The spec doesn't address isolation for local stdio servers when multiple agents 
 | Cert expiry monitoring | External tooling | Built-in, alerts via Hub |
 | Multi-service consistency | Repeat config per server | One policy, entire fleet |
 
-#### 2.4b TLSMCP as an MCP Server
+#### 2.4b OAuth 2.1, On-Behalf-Of, and Machine Identity
+
+The MCP spec standardized on OAuth 2.1 for authorization. The emerging [IETF OBO draft for AI agents](https://www.ietf.org/archive/id/draft-oauth-ai-agents-on-behalf-of-user-01.html) adds delegation chains. TLSMCP is the third layer — the one neither OAuth nor OBO provides.
+
+**Three identity questions in every AI agent connection:**
+
+| Layer | Question | Mechanism | What it proves |
+|-------|----------|-----------|---------------|
+| **Authorization** | What is this token allowed to do? | OAuth 2.1 (scopes, PKCE) | Permissions |
+| **Delegation** | On whose behalf is this agent acting? | OBO flow (`act` claim) | User → agent chain |
+| **Machine identity** | Which physical machine is making this request? | mTLS client certificate (TLSMCP) | Cryptographic machine proof |
+
+OAuth + OBO answer the first two. Neither answers the third.
+
+**Why machine identity matters on top of OAuth:**
+
+A bearer token — even one with an `act` claim showing the full delegation chain — can be stolen from memory and replayed from a different machine, exfiltrated and used from an attacker's infrastructure, or shared between agent instances with no way to distinguish them.
+
+The OBO `act` claim says *"agent-finance-v1 is acting on behalf of user X."* It doesn't say *which instance* of agent-finance-v1, running on *which machine*, presented it.
+
+**TLSMCP binds tokens to machines:**
+
+```
+User authorizes agent (OAuth 2.1 + PKCE)
+  → Agent receives delegated token with act claim (OBO)
+    → Agent connects to MCP server
+      → mTLS handshake (TLSMCP) proves WHICH MACHINE this is
+        → OAuth token proves WHAT it's allowed to do
+          → act claim proves ON WHOSE BEHALF
+```
+
+If someone steals the token and presents it from a different machine, the mTLS handshake fails. The cert doesn't match. Connection rejected before the token is even evaluated. This is **token binding through mTLS**.
+
+**Dual audit trail — logical + physical:**
+
+The OBO flow creates logical delegation chains. TLSMCP adds the physical layer:
+
+```
+OBO act chain:  user-123 → app-portal → agent-finance-v1 → agent-data-v2
+Cert chain:     cert-machine-A → cert-machine-B → cert-machine-C → cert-machine-D
+```
+
+When something goes wrong, you trace both: *who authorized what* (OAuth) and *which specific machine executed each hop* (TLSMCP). You get forensic-grade attribution.
+
+**How the proxy handles it:**
+
+```
+1. AI agent connects to TLSMCP sidecar
+2. mTLS handshake — TLSMCP validates client cert (machine identity)
+3. TLSMCP reads OAuth token from Authorization header (passed through)
+4. TLSMCP injects validated cert identity as X-Client-Cert-CN header
+5. Request forwarded to MCP server with both:
+   - OAuth token (authorization + delegation) — in Authorization header
+   - Machine identity (cert CN, fingerprint) — in injected headers
+6. MCP server validates OAuth token per spec
+7. Audit log records both: cert identity + token claims + act chain
+```
+
+**TLSMCP config for OAuth passthrough:**
+
+```yaml
+mtls:
+  mode: required
+  oauth_passthrough: true       # Forward Authorization header to backend
+  inject_cert_headers: true     # Add X-Client-Cert-CN, X-Client-Cert-Fingerprint
+  bind_token_to_cert: true      # Reject if token's cnf claim doesn't match cert (RFC 8705)
+```
+
+**RFC 8705 (OAuth 2.0 Mutual-TLS Client Authentication):** The `bind_token_to_cert` option enforces [RFC 8705](https://datatracker.ietf.org/doc/html/rfc8705) — the authorization server embeds the client cert fingerprint in the token's `cnf` (confirmation) claim. TLSMCP verifies that the presenting cert matches the fingerprint in the token. This is the strongest form of token binding: the token is cryptographically useless without the matching private key.
+
+#### 2.4c TLSMCP as an MCP Server
 
 TLSMCP exposes its own cert management and security operations as MCP tools, making machine identity **AI-native** — manageable through natural language and composable with other agent workflows.
 
