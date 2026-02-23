@@ -397,7 +397,162 @@ Human user
 
 This means TLSMCP works for every client pattern in the MCP ecosystem without configuration changes — the same sidecar, same cert policy, same audit trail regardless of whether the client is a human, an autonomous agent, or a backend service.
 
-#### 2.4c TLSMCP as an MCP Server
+#### 2.4c Authentication Modes
+
+TLSMCP does not depend on OAuth 2.1. OAuth is one layer in the stack — useful when present, not required when absent. Operators choose the authentication mode that fits their environment, from mTLS-only to full OAuth + OBO + token binding.
+
+##### Mode 1: mTLS Only (No OAuth)
+
+The simplest deployment. Machine identity via client certificates. No authorization server, no token management, no IdP integration. TLSMCP handles authentication, revocation, and audit entirely through certificates.
+
+**Best for:** Internal service-to-service communication, air-gapped environments, early-stage deployments, IoT/edge.
+
+```yaml
+mtls:
+  mode: required
+  oauth_passthrough: false          # No OAuth tokens expected
+  inject_cert_headers: true         # Forward cert identity to backend
+```
+
+**What you get:**
+- Cryptographic machine identity (who is connecting)
+- Instant revocation (< 1 second fleet-wide)
+- Full audit trail (cert CN, fingerprint, timestamps)
+- Zero-downtime cert rotation
+- [cyphers] Score and posture monitoring
+
+**What you don't get:**
+- Authorization scopes (any valid cert can access any tool)
+- User-level identity (certs identify machines, not people)
+- Delegation chains (no OBO without OAuth)
+
+**Mitigation for missing scopes:** Use TLSMCP's CN allowlist to restrict which services can connect. Combined with Hub policy rules, this provides coarse-grained authorization without OAuth:
+
+```yaml
+mtls:
+  mode: required
+  allowed_services:
+    - payment-api                   # Only these CNs can connect
+    - auth-service
+    - data-pipeline
+```
+
+##### Mode 2: OAuth 2.1 Passthrough (Existing IdP)
+
+For organizations with an existing identity provider (Azure Entra ID, Okta, Auth0, Google Cloud Identity, Keycloak). TLSMCP passes OAuth tokens through to the backend and optionally binds them to client certificates.
+
+**Best for:** Enterprise environments with existing IdP, user-facing AI applications, multi-tenant platforms.
+
+```yaml
+mtls:
+  mode: required
+  oauth_passthrough: true           # Forward Authorization header to backend
+  inject_cert_headers: true         # Add X-Client-Cert-CN, X-Client-Cert-Fingerprint
+  bind_token_to_cert: false         # Optional — enable for RFC 8705 binding
+```
+
+**What you get:**
+- Everything from Mode 1, plus:
+- Authorization scopes (what is this token allowed to do)
+- User-level identity (OAuth token carries user claims)
+- Integration with existing IAM policies and SSO
+
+**With `bind_token_to_cert: true` (RFC 8705):**
+- Token is cryptographically bound to the presenting certificate
+- Stolen tokens are useless without the matching private key
+- Requires the authorization server to support RFC 8705 (`cnf` claim with cert fingerprint)
+
+##### Mode 3: OAuth 2.1 + OBO (Full Delegation)
+
+The complete stack. Machine identity + authorization + delegation chains. For environments where AI agents act on behalf of users and delegate to other agents.
+
+**Best for:** Multi-agent systems, user-delegated AI workflows, regulated industries requiring full attribution.
+
+```yaml
+mtls:
+  mode: required
+  oauth_passthrough: true
+  inject_cert_headers: true
+  bind_token_to_cert: true          # RFC 8705 — bind token to cert
+  validate_obo_chain: true          # Verify act claims in delegation chain
+  max_delegation_depth: 5           # Max OBO hops before rejection
+```
+
+**What you get:**
+- Everything from Modes 1 and 2, plus:
+- Delegation chains (user → agent → sub-agent → tool, each hop traceable)
+- Dual audit trail — logical (OBO `act` claims) + physical (cert chain)
+- Forensic-grade attribution (which user authorized which agent on which machine)
+
+##### Mode 4: Hub-Issued Tokens (Future)
+
+Cyphers Hub acts as the OAuth 2.1 authorization server, issuing both certificates *and* tokens. This eliminates the dependency on a third-party IdP entirely — one control plane for all identity.
+
+**Best for:** Greenfield deployments, teams without existing IdP, organizations wanting unified cert + token management.
+
+```yaml
+hub:
+  url: https://hub.cyphers.ai
+  auth_mode: hub_oauth              # Hub is the authorization server
+  # No external IdP needed — Hub issues both certs and tokens
+```
+
+**What you get:**
+- Everything from Mode 3, but with a single control plane
+- Hub issues OAuth tokens alongside certificates
+- Token-to-cert binding is automatic (Hub controls both)
+- Unified revocation — revoking a cert also invalidates associated tokens
+
+**Status:** Future build (Phase 9). The Hub API contract (section 2.3) already supports the necessary endpoints. Implementation requires adding an OAuth 2.1 authorization server to the Hub.
+
+##### Mode 5: Static Service Tokens (Transitional)
+
+For quick deployments where OAuth infrastructure isn't available yet. Uses the `tlsmcp_xxxxxxxxxxxx` service tokens already defined for Hub API authentication. Not a long-term solution — intended as a stepping stone to Mode 1 or 2.
+
+**Best for:** Development environments, proof-of-concept deployments, migration path to full mTLS.
+
+```yaml
+mtls:
+  mode: optional                    # Don't require client certs yet
+  oauth_passthrough: false
+hub:
+  auth_token: tlsmcp_xxxxxxxxxxxx   # Static service token for Hub auth
+```
+
+**What you get:**
+- TLS 1.3 termination (server identity)
+- Hub integration (score, cert lifecycle, events)
+- Basic audit trail
+
+**What you don't get:**
+- Client identity (no mTLS = no machine proof)
+- Revocation enforcement (no client certs to revoke)
+- Token binding (no certs to bind to)
+
+**Migration path:** Start with Mode 5, enable mTLS (Mode 1) once certs are provisioned, add OAuth (Mode 2) when IdP is ready.
+
+##### Mode Comparison
+
+| Capability | Mode 1 (mTLS) | Mode 2 (+ OAuth) | Mode 3 (+ OBO) | Mode 4 (Hub) | Mode 5 (Static) |
+|-----------|:---:|:---:|:---:|:---:|:---:|
+| Machine identity | Yes | Yes | Yes | Yes | No |
+| Instant revocation | Yes | Yes | Yes | Yes | No |
+| Audit trail | Cert-level | Cert + user | Cert + user + chain | Unified | Basic |
+| Authorization scopes | No | Yes | Yes | Yes | No |
+| User identity | No | Yes | Yes | Yes | No |
+| Delegation chains | No | No | Yes | Yes | No |
+| Token binding (RFC 8705) | N/A | Optional | Yes | Automatic | N/A |
+| External IdP required | No | Yes | Yes | No | No |
+| Setup complexity | Low | Medium | High | Low (future) | Minimal |
+| Compliance readiness | Good | Strong | Full | Full | Minimal |
+
+##### Recommendation
+
+**Start with Mode 1** (mTLS only). It delivers 80% of the security value with 20% of the complexity. Machine identity, instant revocation, and audit trails are the foundation — everything else layers on top. Add OAuth (Mode 2) when you need user-level authorization. Add OBO (Mode 3) when you have multi-agent delegation workflows.
+
+The key insight: **mTLS is the floor, not the ceiling.** OAuth is optional enrichment. Most MCP deployments today have *neither* — starting with mTLS puts you ahead of 92% of the ecosystem (per the February 2026 registry audit showing only 8.5% OAuth adoption).
+
+#### 2.4d MCP Server Interface
 
 TLSMCP exposes its own cert management and security operations as MCP tools, making machine identity **AI-native** — manageable through natural language and composable with other agent workflows.
 
@@ -430,7 +585,7 @@ TLSMCP exposes its own cert management and security operations as MCP tools, mak
 
 **Transport:** stdio (local) and Streamable HTTP / SSE (remote). When running as an MCP server, TLSMCP can protect itself with its own mTLS — an MCP server secured by the very proxy it exposes.
 
-#### 2.4d MCP Threat Model & Security Mitigations
+#### 2.4e MCP Threat Model & Security Mitigations
 
 The MCP ecosystem introduces attack surfaces beyond traditional API security. TLSMCP mitigates these at the proxy layer — before threats reach the MCP server or the AI agent.
 
@@ -558,7 +713,7 @@ This threat model aligns with the [CoSAI (Coalition for Secure AI) MCP Security 
 
 TLSMCP doesn't just add TLS to MCP — it provides a comprehensive security layer that addresses threats the MCP spec acknowledges but doesn't solve, and threats the spec doesn't yet address at all.
 
-#### 2.4e MCP Sampling Security
+#### 2.4f MCP Sampling Security
 
 ##### The Problem
 
@@ -598,7 +753,7 @@ mcp:
 
 The MCP spec says sampling requires human approval. TLSMCP ensures that even if a client relaxes this requirement, the proxy still enforces rate and content controls.
 
-#### 2.4f MCP Gateway Architecture
+#### 2.4g MCP Gateway Architecture
 
 ##### Industry Alignment
 
@@ -674,7 +829,7 @@ mcp:
     log_state_transitions: true     # Audit every state change
 ```
 
-#### 2.4g Supply Chain & Registry Security
+#### 2.4h Supply Chain & Registry Security
 
 ##### The Problem
 
@@ -754,7 +909,7 @@ mcp:
       - "/tmp/mcp-scratch"
 ```
 
-#### 2.4h Agent-to-Agent (A2A) Protocol Security
+#### 2.4i Agent-to-Agent (A2A) Protocol Security
 
 ##### The Landscape
 
@@ -807,7 +962,7 @@ MCP governance moved to the [Agentic AI Foundation (AAIF)](https://www.linuxfoun
 - TLSMCP's vendor-neutral, protocol-level security position aligns perfectly — we secure the transport, not the protocol semantics
 - W3C AI Agent Protocol Community Group is working on formal standards (expected 2026-2027)
 
-#### 2.4i Data Loss Prevention & Classification
+#### 2.4j Data Loss Prevention & Classification
 
 ##### The Gap
 
@@ -889,13 +1044,14 @@ TLSMCP has evolved beyond a simple TLS proxy. It is a **comprehensive MCP securi
 | Security Domain | Capabilities |
 |-----------------|-------------|
 | **Identity (2.4a-b)** | mTLS machine identity, OAuth 2.1 passthrough, OBO delegation chains, RFC 8705 token binding |
-| **MCP Server (2.4c)** | MCP tool exposure, cert management via natural language, AI-native security operations |
-| **Threat Mitigation (2.4d)** | Origin validation, session binding, tool poisoning/shadowing detection, rug pull defense |
-| **Sampling Security (2.4e)** | Rate limiting, content inspection, quota enforcement, prompt injection detection |
-| **Gateway Architecture (2.4f)** | Triple Gate Pattern, rate limiting, task security, abuse prevention |
-| **Supply Chain (2.4g)** | Container isolation, attestation verification, SBOM, filesystem boundaries |
-| **A2A Security (2.4h)** | Agent Card integrity, delegation chain verification, cross-protocol audit |
-| **DLP (2.4i)** | PII/credential/PHI detection, payload scanning, compliance mapping |
+| **Authentication Modes (2.4c)** | Five deployment modes from mTLS-only to full OAuth + OBO, progressive adoption path |
+| **MCP Server (2.4d)** | MCP tool exposure, cert management via natural language, AI-native security operations |
+| **Threat Mitigation (2.4e)** | Origin validation, session binding, tool poisoning/shadowing detection, rug pull defense |
+| **Sampling Security (2.4f)** | Rate limiting, content inspection, quota enforcement, prompt injection detection |
+| **Gateway Architecture (2.4g)** | Triple Gate Pattern, rate limiting, task security, abuse prevention |
+| **Supply Chain (2.4h)** | Container isolation, attestation verification, SBOM, filesystem boundaries |
+| **A2A Security (2.4i)** | Agent Card integrity, delegation chain verification, cross-protocol audit |
+| **DLP (2.4j)** | PII/credential/PHI detection, payload scanning, compliance mapping |
 
 #### Why This Matters
 
