@@ -73,7 +73,7 @@ tlsmcp score                             # Fetch [cyphers] Score
 
 ### 2.3 Cyphers Hub (Control Plane)
 
-Separate service (future build). For now, define the API contract.
+Separate service (future build). The Hub is the central brain — every other component talks to it. This section defines the full interface contract.
 
 **Hub provides:**
 - Certificate Authority (issue, sign, revoke)
@@ -83,17 +83,151 @@ Separate service (future build). For now, define the API contract.
 - [cyphers] Score calculation
 - Fleet dashboard data
 
-**Hub API (gRPC + REST):**
+#### Authentication
+
+All Hub API calls use a **service token** (`tlsmcp_xxxxxxxxxxxx`) passed in the `Authorization` header. Tokens are scoped per service and issued during onboarding.
+
 ```
+Authorization: Bearer tlsmcp_xxxxxxxxxxxx
+```
+
+Future: mutual TLS between sidecar and Hub (the sidecar's own client cert authenticates it to the Hub).
+
+#### Hub REST API
+
+```
+# ── Certificate Operations ──
 POST   /api/v1/certs/issue          # Issue client or server cert
 GET    /api/v1/certs/{id}           # Get cert details
+GET    /api/v1/certs?service={id}   # List certs for a service
 DELETE /api/v1/certs/{id}           # Revoke cert
-GET    /api/v1/certs/revocations    # Get revocation list (delta)
-POST   /api/v1/certs/renew          # Trigger server cert renewal
-GET    /api/v1/score                # Get [cyphers] Score
-POST   /api/v1/events               # Sidecar reports events/metrics
+PATCH  /api/v1/certs/{id}          # Update cert metadata (e.g., extend TTL)
+
+# ── Server Cert Renewal ──
+POST   /api/v1/certs/renew          # Request server cert renewal
+GET    /api/v1/certs/renew/{id}     # Check renewal status
+
+# ── Revocation ──
+GET    /api/v1/revocations?since={timestamp}  # Delta revocation list
+GET    /api/v1/revocations/full               # Full CRL
+
+# ── Policy ──
 GET    /api/v1/policy/{service_id}  # Get cert policy for a service
+PUT    /api/v1/policy/{service_id}  # Update policy (Hub UI / admin)
+
+# ── Score ──
+GET    /api/v1/score                # Overall [cyphers] Score
+GET    /api/v1/score/breakdown      # Score per dimension
+
+# ── Events & Metrics ──
+POST   /api/v1/events               # Sidecar reports events (batch)
+GET    /api/v1/audit?service={id}&from={ts}&to={ts}  # Query audit log
+
+# ── Service Registration ──
+POST   /api/v1/services/register    # Register a new sidecar
+GET    /api/v1/services/{id}        # Get service details
+DELETE /api/v1/services/{id}        # Deregister
 ```
+
+#### Who Calls What
+
+| Caller | Endpoint | When |
+|--------|----------|------|
+| **Sidecar → Hub** | `POST /certs/issue` | On startup if no cert cached, or on CLI `cert issue` |
+| **Sidecar → Hub** | `GET /revocations?since=` | Every `revocation_refresh` interval (default 5m) |
+| **Sidecar → Hub** | `POST /events` | Periodic batch (every 30s) — connection counts, handshake failures, cert validations |
+| **Sidecar → Hub** | `POST /certs/renew` | When server cert approaches `renew_before` threshold |
+| **Sidecar → Hub** | `GET /policy/{service_id}` | On startup + every `sync_interval` (default 60s) |
+| **Sidecar → Hub** | `POST /services/register` | On first startup (registers itself with Hub) |
+| **CLI → Hub** | `POST /certs/issue` | `tlsmcp cert issue` |
+| **CLI → Hub** | `DELETE /certs/{id}` | `tlsmcp cert revoke` |
+| **CLI → Hub** | `GET /certs?service=` | `tlsmcp cert list` |
+| **CLI → Hub** | `GET /score` | `tlsmcp score` |
+| **MCP → Hub** | All of the above | Via tool handlers — MCP tools delegate to the same Hub API client |
+| **Hub → Sidecar** | Webhook push | On cert revocation (immediate, not polled) |
+
+#### Hub → Sidecar Webhooks
+
+The Hub pushes critical events directly to sidecars for real-time response. Sidecars register a webhook endpoint during `POST /services/register`.
+
+```
+# Sidecar exposes a local webhook listener (e.g., 127.0.0.1:8444)
+# Hub calls this on events that can't wait for the next poll cycle
+
+POST /hooks/revocation
+{
+  "type": "cert_revoked",
+  "cert_id": "c-xxxxx",
+  "revoked_at": "2026-02-22T10:30:00Z",
+  "reason": "compromised"
+}
+
+POST /hooks/policy_update
+{
+  "type": "policy_changed",
+  "service_id": "api-prod-01",
+  "changes": ["allowed_services", "max_ttl"]
+}
+
+POST /hooks/cert_renewed
+{
+  "type": "cert_renewed",
+  "cert_id": "s-xxxxx",
+  "new_cert_id": "s-yyyyy",
+  "valid_until": "2027-02-22T00:00:00Z"
+}
+```
+
+#### Data Flow Diagrams
+
+**Sidecar startup:**
+```
+Sidecar boots
+  → POST /services/register (sends service_id, version, webhook_url)
+  → GET /policy/{service_id} (fetch cert policy)
+  → POST /certs/issue (get client cert if needed)
+  → GET /revocations/full (initial CRL load)
+  → Start TLS listener
+```
+
+**Ongoing operation:**
+```
+Every 5m:  GET /revocations?since={last_sync}    → update local CRL cache
+Every 30s: POST /events {connections, failures}   → report metrics
+Every 60s: GET /policy/{service_id}               → sync policy changes
+```
+
+**Cert revocation (real-time):**
+```
+Admin revokes cert in Hub UI
+  → Hub: DELETE /certs/{id}
+  → Hub: POST webhook to ALL sidecars → /hooks/revocation
+  → Each sidecar: adds cert to local revocation cache immediately
+  → Next connection from revoked cert: rejected at handshake
+  → Latency: < 1 second from revocation to enforcement
+```
+
+**Server cert renewal:**
+```
+Sidecar detects cert expiry approaching (renew_before threshold)
+  → POST /certs/renew (Hub initiates ACME/CA renewal)
+  → Hub provisions new cert, stores it
+  → Hub: POST /hooks/cert_renewed → sidecar
+  → Sidecar: loads new cert, builds new SslAcceptor, atomic swap
+  → New connections use new cert; old connections drain on old cert
+  → Zero downtime
+```
+
+#### Hub Offline / Unreachable
+
+Sidecars must remain functional if the Hub is temporarily unreachable:
+
+- **Cached CRL** — last-known revocation list stays active
+- **Cached policy** — last-known policy stays enforced
+- **Existing certs** — continue working until expiry
+- **Events buffered** — metrics queued locally, flushed when Hub reconnects
+- **No new issuance** — `cert issue` fails with clear error until Hub is back
+- **Logging** — sidecar logs Hub connectivity status for monitoring
 
 ### 2.4 MCP Interface
 
@@ -240,7 +374,7 @@ hub:
 
 listen:
   address: "0.0.0.0:8443"
-  protocol: tls13               # TLS 1.3 only, no fallback
+  protocol: tls13               # tls13 (default) | tls12+ (NIAP mode)
 
 backend:
   address: "127.0.0.1:3000"
@@ -284,14 +418,33 @@ mcp:
 Use the `openssl` crate (Rust bindings to libssl/libcrypto):
 
 ```rust
-// TLS 1.3 context setup (simplified)
-use openssl::ssl::{SslAcceptor, SslMethod, SslVerifyMode, SslFiletype};
+// TLS context setup — supports both TLS 1.3 only and NIAP (TLS 1.2+) modes
+use openssl::ssl::{SslAcceptor, SslMethod, SslVerifyMode, SslFiletype, SslVersion};
 
 fn build_tls_acceptor(config: &TlsConfig) -> Result<SslAcceptor> {
     let mut builder = SslAcceptor::mozilla_intermediate_v5(SslMethod::tls_server())?;
 
-    // TLS 1.3 minimum
-    builder.set_min_proto_version(Some(SslVersion::TLS1_3))?;
+    match config.protocol {
+        Protocol::Tls13 => {
+            // Default: TLS 1.3 only
+            builder.set_min_proto_version(Some(SslVersion::TLS1_3))?;
+        }
+        Protocol::Tls12Plus => {
+            // NIAP NDcPP mode: TLS 1.2 + 1.3 with approved cipher suites
+            builder.set_min_proto_version(Some(SslVersion::TLS1_2))?;
+            builder.set_cipher_list(
+                "ECDHE-ECDSA-AES256-GCM-SHA384:\
+                 ECDHE-RSA-AES256-GCM-SHA384:\
+                 ECDHE-ECDSA-AES128-GCM-SHA256:\
+                 ECDHE-RSA-AES128-GCM-SHA256"
+            )?;
+            builder.set_ciphersuites(
+                "TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256"
+            )?;
+            // Require extended_master_secret (RFC 7627)
+            builder.set_options(SslOptions::NO_RENEGOTIATION);
+        }
+    }
 
     // Server cert + key
     builder.set_certificate_chain_file(&config.server_cert_path)?;
@@ -388,7 +541,7 @@ Watch cert files for changes, rebuild `SslAcceptor` without dropping connections
 
 ## 8. Security Principles
 
-1. **TLS 1.3 only** — no negotiation to older protocols
+1. **TLS 1.3 by default** — with NIAP-compliant TLS 1.2+ mode for government/regulated deployments
 2. **Reject first** — invalid certs terminate the connection before any bytes reach the app
 3. **No plaintext outside localhost** — backend traffic is loopback only
 4. **Minimal attack surface** — single binary, no plugins, no scripting
@@ -398,7 +551,197 @@ Watch cert files for changes, rebuild `SslAcceptor` without dropping connections
 
 ---
 
-## 9. Performance Targets
+## 9. NIAP Compliance (NDcPP + TLS Functional Package)
+
+TLSMCP targets the [NDcPP v3.0e](https://www.niap-ccevs.org/protectionprofiles/482) (Network Device collaborative Protection Profile) and the [PKG_TLS v2.0](https://www.commoncriteriaportal.org/nfs/ccpfiles/files/ppfiles/PKG_TLS_V2.0.pdf) functional package. This enables listing on the NIAP Product Compliant List (PCL) for US government and defense procurement.
+
+**Note:** NDcPP v4.0 is published and mandatory for new evaluations after June 14, 2026. v4.0 adopts CC:2022 and moves TLS/X.509 into modular functional packages (PKG_TLS v2.x, PKG_X.509 v1.0). Our architecture already aligns with this modular approach — TLS and cert validation are isolated in dedicated modules (`tls.rs`, `mtls.rs`).
+
+### TLS Protocol Requirements
+
+| Requirement | TLSMCP Implementation |
+|------------|----------------------|
+| TLS 1.2 support (mandatory) | Supported in `tls12+` mode |
+| TLS 1.3 support (optional) | Supported — default mode |
+| Reject all other SSL/TLS versions | OpenSSL `set_min_proto_version` enforced |
+| Abort on version downgrade | Handled by OpenSSL handshake |
+
+### Approved Cipher Suites (TLS 1.2)
+
+Per PKG_TLS v2.0 and RFC 9151 (CNSA Suite Profile), ordered by preference — ECDHE preferred over DHE/RSA, GCM preferred over CBC:
+
+```
+TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384    (preferred — CNSA)
+TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+TLS_DHE_RSA_WITH_AES_256_GCM_SHA384
+TLS_DHE_RSA_WITH_AES_128_GCM_SHA256
+```
+
+### Approved Cipher Suites (TLS 1.3)
+
+```
+TLS_AES_256_GCM_SHA384                      (preferred — CNSA)
+TLS_AES_128_GCM_SHA256
+```
+
+### Prohibited Cryptography
+
+TLSMCP rejects all of the following (enforced via OpenSSL cipher configuration):
+
+- Null encryption
+- Anonymous server authentication
+- Export-grade algorithms (DES, 3DES, RC2, RC4, IDEA)
+- MD5-based hashing
+- SHA-1 based cipher suites
+- CBC mode suites (allowed by spec but excluded by default — configurable for legacy)
+
+### Key Exchange Requirements
+
+| Algorithm | Parameters | Status |
+|-----------|-----------|--------|
+| ECDHE | secp256r1, secp384r1, secp521r1 | Supported |
+| DHE | ffdhe2048 – ffdhe8192 | Supported |
+| RSA key sizes | 2048, 3072, 4096 bits | Supported |
+
+### Signature Algorithms
+
+| Algorithm | Status |
+|-----------|--------|
+| `ecdsa_secp256r1_sha256` | Supported |
+| `ecdsa_secp384r1_sha384` | Supported |
+| `rsa_pkcs1_sha256` | Supported |
+| `rsa_pkcs1_sha384` | Supported |
+| `rsa_pss_rsae_sha256` | Supported |
+| `rsa_pss_rsae_sha384` | Supported |
+
+### X.509 Certificate Validation
+
+| Requirement | Implementation |
+|------------|----------------|
+| X.509v3 chain validation | OpenSSL built-in chain verification |
+| CN / SAN matching (DNS, IP, URI) | Custom validation in `mtls.rs` |
+| Abort on validation failure | Connection terminated immediately |
+| Admin override for invalid certs | Configurable per policy (`cert_override: admin_only`) |
+| Wildcard matching rules | No top-level wildcarding (*.com rejected) |
+
+### Revocation Checking
+
+| Method | Status |
+|--------|--------|
+| CRL (Certificate Revocation List) | Supported — cached locally, synced from Hub |
+| OCSP (Online Certificate Status Protocol) | Supported — stapled or live lookup |
+| OCSP stapling | Supported — server-side stapling for performance |
+| Graceful fallback when revocation unavailable | Configurable: `fail_open` or `fail_closed` (default: `fail_closed`) |
+
+### Session Security
+
+| Requirement | Implementation |
+|------------|----------------|
+| Secure renegotiation (RFC 5746) | `renegotiation_info` extension enforced |
+| `extended_master_secret` (RFC 7627) | Required in TLS 1.2 mode |
+| Reject unexpected renegotiation | `SslOptions::NO_RENEGOTIATION` in NIAP mode |
+| Session resumption (optional) | Session tickets (RFC 5077), PSK (TLS 1.3) |
+
+### NDcPP v3.0e Security Functional Requirements
+
+Beyond TLS, the NDcPP mandates security functional requirements across six categories. Here's how TLSMCP maps to each:
+
+#### FCS — Cryptographic Services
+
+| SFR | Requirement | TLSMCP Implementation |
+|-----|------------|----------------------|
+| FCS_CKM | Key generation & lifecycle | OpenSSL key generation; keys stored encrypted at rest |
+| FCS_COP | Cryptographic operations | OpenSSL with FIPS provider; all approved algorithms |
+| FCS_RBG_EXT | Random bit generation | OpenSSL DRBG (NIST SP 800-90A); entropy documentation required |
+| FCS_TLSC_EXT | TLS client | Hub communication uses TLS 1.2+/1.3 client |
+| FCS_TLSS_EXT | TLS server | Core proxy TLS listener with approved cipher suites |
+
+#### FAU — Security Audit
+
+| SFR | Requirement | TLSMCP Implementation |
+|-----|------------|----------------------|
+| FAU_GEN_EXT | Audit data generation | All security-relevant events logged (Table 2 events) |
+| FAU_STG_EXT | Protected audit storage | Audit logs integrity-protected; forwarded to Hub/SIEM |
+
+**Auditable events include:**
+- Authentication attempts and failures (mTLS handshake accept/reject)
+- Certificate operations (issuance, revocation, renewal)
+- Configuration changes (policy updates from Hub)
+- Administrative actions (CLI commands)
+- Proxy startup/shutdown
+- Update operations
+
+#### FIA — Identification & Authentication
+
+| SFR | Requirement | TLSMCP Implementation |
+|-----|------------|----------------------|
+| FIA_UIA_EXT | User identification & auth | Admin auth via Hub credentials; CLI auth via service token |
+| FIA_X509_EXT | X.509 certificate validation | Full chain validation, CN/SAN matching, revocation checking |
+| FIA_AFL | Auth failure handling | Connection terminated on cert failure; rate limiting on repeated failures |
+
+#### FPT — TSF Protection
+
+| SFR | Requirement | TLSMCP Implementation |
+|-----|------------|----------------------|
+| FPT_TUD_EXT | Trusted update | Signed binary updates; signature verified before installation |
+| FPT_SKP_EXT | TSF data protection | Private keys never logged; config secrets encrypted at rest |
+| FPT_TST_EXT | Self-testing | Startup integrity checks on crypto operations; health endpoint |
+| FPT_STM_EXT | Trusted timestamps | NTP-synced timestamps on all audit events |
+| FPT_APW_EXT | Admin password protection | Service tokens hashed; no plaintext credential storage |
+
+#### FTP — Trusted Path/Channel
+
+| SFR | Requirement | TLSMCP Implementation |
+|-----|------------|----------------------|
+| FTP_ITC | Trusted channel | All Hub communication over TLS; mutual auth (future) |
+| FTP_TRP | Trusted path | Admin CLI communicates with proxy over localhost only |
+| FPT_ITT | Internal data transfer | Sidecar ↔ Hub traffic encrypted; webhook payloads signed |
+
+### NIAP Mode Configuration
+
+```yaml
+# Enable NIAP-compliant mode
+listen:
+  protocol: tls12+              # TLS 1.2 + 1.3 with NIAP cipher suites
+
+niap:
+  enabled: true
+  fips: true                    # Require FIPS 140-2 validated crypto
+  revocation_mode: fail_closed  # Reject if revocation status unknown
+  extended_master_secret: true  # Enforce RFC 7627
+  ocsp_stapling: true           # Enable OCSP stapling
+  audit_crypto_ops: true        # Log all cryptographic operations
+  secure_update:
+    verify_signature: true      # Require signed binary updates
+    allowed_signers:            # Trusted update signing keys
+      - cyphers-release-key
+```
+
+### Certification Path
+
+Building to NDcPP v3.0e / PKG_TLS v2.0 from day one, with an eye on v4.0 (CC:2022) which becomes mandatory June 14, 2026.
+
+**v4.0 key changes that affect us:**
+- TLS moves from embedded SFRs to PKG_TLS v2.x (our `tls.rs` module already isolates this)
+- X.509 moves to PKG_X.509 v1.0 (our `mtls.rs` module already isolates this)
+- Explicit certificate path validation rules (FCO_CPC_EXT.1)
+- CC:2022 introduces Parts 4 & 5 with updated evaluation methods
+
+**Formal certification involves:**
+
+1. **Security Target (ST)** — document mapping TLSMCP to NDcPP SFRs (write during Phase 6)
+2. **Lab evaluation** — accredited CCTL lab tests against the ST
+3. **NIAP validation** — listing on the Product Compliant List
+
+**Entropy documentation** (Appendix D of NDcPP) required for FCS_RBG_EXT — must provide design description, entropy justification, operating conditions, and health testing documentation for our random number generation.
+
+The architecture supports all required SFRs. Formal certification is a business decision based on customer demand, but building compliant from day one makes future certification a documentation exercise, not a re-architecture.
+
+---
+
+## 10. Performance Targets
 
 | Metric | Target |
 |--------|--------|
@@ -415,7 +758,9 @@ Watch cert files for changes, rebuild `SslAcceptor` without dropping connections
 
 - **Unit tests:** Config parsing, cert validation logic, CN matching, revocation checks
 - **Integration tests:** Full proxy with test certs, mTLS handshake, backend forwarding
-- **TLS compliance:** Verify TLS 1.3 only (reject 1.2 connections), cipher suite enforcement
+- **TLS compliance:** Verify TLS 1.3 default mode rejects 1.2; verify NIAP mode accepts 1.2+ with approved suites only
+- **NIAP cipher suites:** Verify only approved cipher suites negotiate; reject prohibited algorithms
+- **Certificate path validation:** Chain verification, CN/SAN matching, revocation enforcement
 - **Cert lifecycle:** Issue → use → revoke → verify rejection
 - **Load testing:** k6 or wrk against proxy under load
 - **FIPS validation:** Verify FIPS provider activates and restricts algorithms
