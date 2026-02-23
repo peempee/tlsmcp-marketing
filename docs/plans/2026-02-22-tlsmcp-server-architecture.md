@@ -430,6 +430,128 @@ TLSMCP exposes its own cert management and security operations as MCP tools, mak
 
 **Transport:** stdio (local) and Streamable HTTP / SSE (remote). When running as an MCP server, TLSMCP can protect itself with its own mTLS — an MCP server secured by the very proxy it exposes.
 
+#### 2.4d MCP Threat Model & Security Mitigations
+
+The MCP ecosystem introduces attack surfaces beyond traditional API security. TLSMCP mitigates these at the proxy layer — before threats reach the MCP server or the AI agent.
+
+##### Origin Header Validation
+
+**Threat:** DNS rebinding and cross-origin attacks. An attacker rebinds a domain to `127.0.0.1`, causing a browser or agent to unknowingly send requests to a local MCP server with the attacker's origin.
+
+**TLSMCP mitigation:** The proxy validates the `Origin` header on every incoming HTTP request (per MCP spec 2025-06-18). Requests with unexpected origins are rejected at the proxy — the MCP server never sees them. Combined with mTLS, DNS rebinding is doubly neutralized: even if DNS resolves to the wrong IP, the attacker can't present a valid client certificate.
+
+```yaml
+mcp:
+  origin_validation:
+    allowed_origins:
+      - "https://app.example.com"
+      - "https://agent.internal"
+    reject_missing_origin: true    # Reject requests with no Origin header
+```
+
+##### Resource Indicators (RFC 8707)
+
+**Threat:** Token misuse across services. An OAuth token issued for MCP Server A is replayed against MCP Server B.
+
+**TLSMCP mitigation:** When `bind_token_to_cert` is enabled (RFC 8705), the token is cryptographically bound to a specific client certificate. Even without RFC 8707 support from the authorization server, TLSMCP's mTLS binding prevents cross-service token replay — the stolen token won't work without the matching private key. When the authorization server does support RFC 8707, TLSMCP validates the `resource` parameter matches the target service.
+
+##### Session Binding
+
+**Threat:** MCP session hijacking. An attacker steals the `Mcp-Session-Id` header value and uses it to impersonate an established session.
+
+**TLSMCP mitigation:** The proxy binds MCP session IDs to the client certificate fingerprint that initiated the session. Any request presenting a session ID from a different certificate is rejected. Session hijacking becomes impossible — possession of the session ID is insufficient without the corresponding private key.
+
+```rust
+// Session binding pseudocode
+struct BoundSession {
+    session_id: String,
+    cert_fingerprint: String,  // SHA-256 of client cert
+    created_at: Instant,
+}
+
+// On each request: verify session_id maps to the presenting cert
+fn validate_session(session_id: &str, client_cert: &X509) -> Result<()> {
+    let bound = sessions.get(session_id)?;
+    let fingerprint = cert_fingerprint(client_cert);
+    if bound.cert_fingerprint != fingerprint {
+        return Err(Error::SessionCertMismatch);
+    }
+    Ok(())
+}
+```
+
+##### Tool Poisoning & Shadowing
+
+**Threat:** A malicious MCP server injects hidden instructions into tool descriptions (tool poisoning) or replaces a previously registered tool with a malicious version (tool shadowing). The AI agent executes the poisoned tool, leaking data or performing unauthorized actions.
+
+**TLSMCP mitigation:** The proxy maintains a **tool schema registry** — a pinned snapshot of each MCP server's tool definitions captured at first connection. On subsequent connections, TLSMCP compares the current tool manifest against the pinned version. Any changes trigger an alert and can be configured to block the connection.
+
+```yaml
+mcp:
+  tool_integrity:
+    pin_schemas: true              # Pin tool definitions at first registration
+    on_schema_change: alert        # alert | block | allow
+    schema_store: /var/lib/tlsmcp/tool-schemas/
+```
+
+**Detection capabilities:**
+- New tool added that wasn't in the original manifest
+- Existing tool description modified (potential poisoning)
+- Tool parameters changed (potential type confusion attack)
+- Tool removed and re-added with different definition (rug pull)
+
+##### Rug Pull Attacks
+
+**Threat:** An MCP server behaves legitimately during initial trust-building, then changes its tool definitions to be malicious after gaining trust.
+
+**TLSMCP mitigation:** Tool schema pinning (above) detects this automatically. Additionally, TLSMCP versions all tool definitions and maintains a change history. Administrators can set a policy requiring manual approval for any tool definition changes, or auto-revoke the server's certificate on detection.
+
+```yaml
+mcp:
+  tool_integrity:
+    on_schema_change: block        # Block connections when tools change
+    require_approval: true         # Admin must approve tool changes in Hub
+    auto_revoke_on_tamper: false   # Revoke server cert on unauthorized change
+```
+
+##### Cross-Tool Contamination
+
+**Threat:** Data returned by one MCP tool leaks into the context of another tool invocation, enabling data exfiltration. A malicious tool crafts a response that instructs the AI to pass sensitive data to another tool controlled by the attacker.
+
+**TLSMCP mitigation:** TLSMCP can enforce **tool-level isolation** by routing each tool call through a separate proxy context with independent session state. The proxy strips injected instructions from tool responses based on content-type validation and response sanitization rules.
+
+```yaml
+mcp:
+  isolation:
+    tool_context_separation: true  # Separate proxy context per tool call
+    response_sanitization: true    # Strip potential injection patterns from responses
+    allowed_response_types:        # Restrict response content types
+      - "text/plain"
+      - "application/json"
+```
+
+##### Prompt Injection via Tool Responses
+
+**Threat:** MCP tool responses contain crafted content (especially in HTML or markdown) that hijacks the AI agent's behavior — instructing it to ignore prior instructions, exfiltrate data, or call additional tools.
+
+**TLSMCP mitigation:** The proxy enforces content-type restrictions on MCP tool responses. HTML responses can be blocked or sanitized. Combined with response size limits, this reduces the attack surface for prompt injection through tool output.
+
+##### Summary: TLSMCP as MCP Security Layer
+
+| Threat | MCP Spec Mitigation | TLSMCP Mitigation |
+|--------|---------------------|-------------------|
+| DNS rebinding | Origin header validation | Origin validation + mTLS (cert invalidates rebinding) |
+| Token replay across services | RFC 8707 Resource Indicators | mTLS token binding (RFC 8705) — token useless without cert |
+| Session hijacking | Cryptographic session IDs | Session-to-cert binding — session ID useless without cert |
+| Tool poisoning | None specified | Schema pinning + change detection + alerts |
+| Tool shadowing | None specified | Tool manifest comparison on each connection |
+| Rug pull attacks | None specified | Schema versioning + approval workflows + auto-revocation |
+| Cross-tool contamination | None specified | Tool-level context isolation + response sanitization |
+| Prompt injection via responses | None specified | Content-type enforcement + response size limits |
+| Man-in-the-middle | TLS 1.2+ required | TLS 1.3 default + mTLS mutual authentication |
+
+TLSMCP doesn't just add TLS to MCP — it provides a comprehensive security layer that addresses threats the MCP spec acknowledges but doesn't solve, and threats the spec doesn't yet address at all.
+
 #### Why This Matters
 
 **For security teams:**
