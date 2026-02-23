@@ -346,7 +346,7 @@ tlsmcp/
 
 | Crate | Purpose |
 |-------|---------|
-| `openssl` | TLS 1.3 termination, cert validation, FIPS support |
+| `openssl` | TLS 1.2/1.3 termination, cert validation, FIPS 140-3 (OpenSSL 3.4.x + FIPS Provider 3.1.2) |
 | `tokio` | Async runtime for concurrent connections |
 | `hyper` | HTTP/1.1 + HTTP/2 forwarding to backend |
 | `clap` | CLI argument parsing |
@@ -460,17 +460,39 @@ fn build_tls_acceptor(config: &TlsConfig) -> Result<SslAcceptor> {
 }
 ```
 
-### FIPS Mode
+### FIPS 140-3 Mode
 
-OpenSSL 3.x supports FIPS via provider modules:
+TLSMCP targets **FIPS 140-3** (not 140-2, which sunsets September 2026).
+
+**Strategy:** Link against OpenSSL 3.4.x for the latest features, but load the FIPS 140-3 validated Provider (v3.1.2, CMVP [#4985](https://csrc.nist.gov/projects/cryptographic-module-validation-program/certificate/4985), valid through March 2030). The FIPS Provider is forward-compatible across all OpenSSL 3.x versions.
 
 ```rust
-// Enable FIPS provider at startup if configured
+// Enable FIPS 140-3 provider at startup if configured
 if config.fips_mode {
+    // Load the validated FIPS Provider (3.1.2) — restricts all crypto
+    // operations to FIPS-approved algorithms only
     openssl::provider::Provider::load(None, "fips")?;
+    // Base provider for non-crypto operations (encoding, decoding)
     openssl::provider::Provider::load(None, "base")?;
+
+    // Verify FIPS mode is active
+    assert!(openssl::fips::enabled(), "FIPS provider failed to activate");
 }
 ```
+
+**Build requirements:**
+- OpenSSL 3.4.x headers and libraries
+- FIPS Provider module (`fipsmodule.so`) installed separately
+- FIPS module config (`fipsmodule.cnf`) with integrity check values
+- Provider path set via `OPENSSL_MODULES` env or openssl.cnf
+
+**What FIPS mode restricts:**
+- Only approved algorithms (AES-GCM, SHA-2, ECDSA, RSA ≥2048, ECDHE with approved curves)
+- No MD5, SHA-1 for signatures, DES, RC4, or unapproved curves
+- DRBG random number generation (NIST SP 800-90A)
+- Key generation via approved methods only
+
+**OpenSSL 3.4.0 note:** Currently on the CMVP "Modules In Progress" list with FIPS 186-5 (updated digital signature standard). When validated, it will support Ed25519/Ed448 signatures under FIPS.
 
 ### Certificate Hot-Reload
 
@@ -524,7 +546,7 @@ Watch cert files for changes, rebuild `SslAcceptor` without dropping connections
 - [ ] CLI: `tlsmcp mcp serve` subcommand
 
 ### Phase 6 — Enterprise
-- [ ] FIPS 140-2 mode (OpenSSL FIPS provider)
+- [ ] FIPS 140-3 mode (OpenSSL 3.4.x + FIPS Provider 3.1.2, CMVP #4985)
 - [ ] Audit log export (JSON structured events)
 - [ ] SIEM-compatible log format
 - [ ] RBAC policy enforcement from Hub
@@ -653,7 +675,7 @@ Beyond TLS, the NDcPP mandates security functional requirements across six categ
 | SFR | Requirement | TLSMCP Implementation |
 |-----|------------|----------------------|
 | FCS_CKM | Key generation & lifecycle | OpenSSL key generation; keys stored encrypted at rest |
-| FCS_COP | Cryptographic operations | OpenSSL with FIPS provider; all approved algorithms |
+| FCS_COP | Cryptographic operations | OpenSSL 3.4.x with FIPS 140-3 Provider (3.1.2, CMVP #4985); all approved algorithms |
 | FCS_RBG_EXT | Random bit generation | OpenSSL DRBG (NIST SP 800-90A); entropy documentation required |
 | FCS_TLSC_EXT | TLS client | Hub communication uses TLS 1.2+/1.3 client |
 | FCS_TLSS_EXT | TLS server | Core proxy TLS listener with approved cipher suites |
@@ -708,7 +730,7 @@ listen:
 
 niap:
   enabled: true
-  fips: true                    # Require FIPS 140-2 validated crypto
+  fips: true                    # Require FIPS 140-3 validated crypto (Provider 3.1.2, CMVP #4985)
   revocation_mode: fail_closed  # Reject if revocation status unknown
   extended_master_secret: true  # Enforce RFC 7627
   ocsp_stapling: true           # Enable OCSP stapling
@@ -763,7 +785,7 @@ The architecture supports all required SFRs. Formal certification is a business 
 - **Certificate path validation:** Chain verification, CN/SAN matching, revocation enforcement
 - **Cert lifecycle:** Issue → use → revoke → verify rejection
 - **Load testing:** k6 or wrk against proxy under load
-- **FIPS validation:** Verify FIPS provider activates and restricts algorithms
+- **FIPS 140-3 validation:** Verify FIPS Provider 3.1.2 activates, restricts to approved algorithms, rejects non-FIPS operations
 - **MCP tools:** Verify each tool executes correctly (issue, revoke, scan, score)
 - **MCP resources:** Verify resource URIs return correct data
 - **MCP-over-mTLS:** Verify SSE transport rejects unauthenticated MCP clients
