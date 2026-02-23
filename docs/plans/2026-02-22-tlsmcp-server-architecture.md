@@ -538,19 +538,364 @@ mcp:
 
 ##### Summary: TLSMCP as MCP Security Layer
 
-| Threat | MCP Spec Mitigation | TLSMCP Mitigation |
-|--------|---------------------|-------------------|
-| DNS rebinding | Origin header validation | Origin validation + mTLS (cert invalidates rebinding) |
-| Token replay across services | RFC 8707 Resource Indicators | mTLS token binding (RFC 8705) — token useless without cert |
-| Session hijacking | Cryptographic session IDs | Session-to-cert binding — session ID useless without cert |
-| Tool poisoning | None specified | Schema pinning + change detection + alerts |
-| Tool shadowing | None specified | Tool manifest comparison on each connection |
-| Rug pull attacks | None specified | Schema versioning + approval workflows + auto-revocation |
-| Cross-tool contamination | None specified | Tool-level context isolation + response sanitization |
-| Prompt injection via responses | None specified | Content-type enforcement + response size limits |
-| Man-in-the-middle | TLS 1.2+ required | TLS 1.3 default + mTLS mutual authentication |
+This threat model aligns with the [CoSAI (Coalition for Secure AI) MCP Security Taxonomy](https://www.oasis-open.org/2026/01/27/coalition-for-secure-ai-releases-extensive-taxonomy-for-model-context-protocol-security/) published January 2026, which defines ~40 threats across 12 categories. CoSAI was developed by Google, IBM, Meta, Microsoft, NVIDIA, PayPal, Snyk, Trend Micro, and Zscaler.
+
+| Threat | MCP Spec Mitigation | TLSMCP Mitigation | Real-World CVEs |
+|--------|---------------------|-------------------|-----------------|
+| DNS rebinding | Origin header validation | Origin validation + mTLS (cert invalidates rebinding) | CVE-2025-52882 (Claude Code WebSocket bypass) |
+| Token replay across services | RFC 8707 Resource Indicators | mTLS token binding (RFC 8705) — token useless without cert | — |
+| Session hijacking | Cryptographic session IDs | Session-to-cert binding — session ID useless without cert | — |
+| Tool poisoning | None specified | Schema pinning + change detection + alerts | MCPTox benchmark: 72.8% attack success on o1-mini |
+| Tool shadowing | None specified | Tool manifest comparison on each connection | — |
+| Rug pull attacks | None specified | Schema versioning + approval workflows + auto-revocation | — |
+| Cross-tool contamination | None specified | Tool-level context isolation + response sanitization | — |
+| Prompt injection via responses | None specified | Content-type enforcement + response size limits | CVE-2025-68143/44/45 (Anthropic Git MCP server RCE) |
+| Man-in-the-middle | TLS 1.2+ required | TLS 1.3 default + mTLS mutual authentication | — |
+| OAuth discovery RCE | None specified | mTLS bypasses OAuth discovery entirely | CVE-2025-6514 (mcp-remote, CVSS 9.6) |
+| Supply chain compromise | None specified | Tool integrity + container isolation + SBOM | Smithery.ai path traversal (3,000+ servers) |
+| Sampling abuse | Human approval required | Rate limiting + content inspection at proxy | — |
+| Data exfiltration | None specified | DLP scanning at proxy layer | Supabase Cursor agent breach (PAT exfiltration) |
 
 TLSMCP doesn't just add TLS to MCP — it provides a comprehensive security layer that addresses threats the MCP spec acknowledges but doesn't solve, and threats the spec doesn't yet address at all.
+
+#### 2.4e MCP Sampling Security
+
+##### The Problem
+
+The MCP spec allows servers to request LLM completions *through the client* via the sampling primitive. The server crafts the prompt, the client forwards it to the LLM, and the server processes the response. This creates a unique attack vector: the MCP server controls both input and output of an LLM interaction that happens inside the client's context.
+
+**Attack vectors:**
+- **Hidden instruction injection** — server crafts prompts containing instructions that manipulate the LLM's behavior beyond the sampling request
+- **Conversation hijacking** — server instructs the LLM to append malicious prefixes to all subsequent responses, persisting beyond the sampling call
+- **Context manipulation** — server influences future agent interactions through crafted sampling responses, even though it doesn't see the full chat history
+- **Compute theft** — malicious server drains the client's AI compute quota through excessive or expensive sampling requests
+
+##### TLSMCP Mitigation
+
+TLSMCP intercepts sampling requests at the proxy layer, applying rate limits, content inspection, and quota enforcement before the request reaches the client's LLM.
+
+```yaml
+mcp:
+  sampling:
+    enabled: true
+    rate_limit: 10/min              # Max sampling requests per minute per server
+    max_tokens_per_request: 4096    # Cap token budget per sampling call
+    daily_quota: 1000               # Total sampling tokens per server per day
+    content_inspection: true        # Scan prompts for injection patterns
+    require_approval: false         # Require human approval (MCP spec default: true)
+    blocked_patterns:               # Reject sampling prompts containing these
+      - "ignore previous instructions"
+      - "system prompt"
+      - "append to all responses"
+```
+
+**What TLSMCP enforces:**
+- Per-server sampling rate limits (prevent compute theft)
+- Token budget caps per request and per day (prevent quota draining)
+- Prompt content inspection for known injection patterns
+- Logging of all sampling requests and responses for audit
+- Certificate-based attribution — which server, on which machine, requested what
+
+The MCP spec says sampling requires human approval. TLSMCP ensures that even if a client relaxes this requirement, the proxy still enforces rate and content controls.
+
+#### 2.4f MCP Gateway Architecture
+
+##### Industry Alignment
+
+The industry is converging on the **MCP Gateway** pattern as the standard security architecture for AI-to-tool connections. Microsoft, MintMCP (first SOC 2 Type II certified MCP platform), and others have adopted this model. TLSMCP is this gateway.
+
+##### The Triple Gate Pattern
+
+TLSMCP implements defense-in-depth across three security layers:
+
+```
+                    ┌─────────────────────────────────────────────┐
+                    │              GATE 1: IDENTITY                │
+                    │  mTLS handshake + cert validation            │
+                    │  OAuth token verification + RFC 8705 binding │
+                    │  Origin header validation                    │
+                    ├─────────────────────────────────────────────┤
+                    │              GATE 2: POLICY                  │
+                    │  Tool schema integrity check                 │
+                    │  Sampling rate limits + content inspection    │
+                    │  DLP scanning (PII, credentials, secrets)    │
+                    │  RBAC enforcement from Hub policy             │
+                    ├─────────────────────────────────────────────┤
+                    │              GATE 3: AUDIT                   │
+                    │  Structured event logging (every request)    │
+                    │  Session-to-cert binding                     │
+                    │  SIEM export (JSON, CEF, LEEF)               │
+                    │  7-year retention for SOX compliance          │
+                    └─────────────────────────────────────────────┘
+```
+
+**Gate 1 — Identity:** Every connection is authenticated cryptographically. mTLS proves which machine, OAuth proves what permissions, OBO proves on whose behalf. Unauthenticated requests never reach Gate 2.
+
+**Gate 2 — Policy:** Authenticated requests are evaluated against policy. Tool schemas are checked for integrity. Sampling requests are rate-limited. Request and response payloads are scanned for sensitive data. RBAC rules from the Hub determine which tools this identity can invoke.
+
+**Gate 3 — Audit:** Every request that passes Gate 2 is logged with full attribution — certificate identity, OAuth claims, tool invoked, parameters, response summary, timestamp. Logs are integrity-protected and forwarded to SIEM. Immutable audit trail for compliance.
+
+##### Rate Limiting & Abuse Prevention
+
+```yaml
+mcp:
+  rate_limiting:
+    enabled: true
+    per_client:
+      requests_per_second: 100      # Per-client rate limit
+      burst_capacity: 200           # Allow short bursts
+    global:
+      requests_per_minute: 6000     # DDoS threshold
+    per_tool:
+      high_risk_tools: 10/min       # Stricter limits for cert_issue, cert_revoke
+      standard_tools: 100/min       # Normal limits for status, score, list
+    response:
+      status: 429                   # HTTP 429 Too Many Requests
+      retry_after: true             # Include Retry-After header
+```
+
+##### MCP Tasks Primitive Security (Nov 2025 Spec)
+
+The November 2025 MCP spec introduced the **Tasks primitive** for long-running asynchronous operations. Tasks have states (`working`, `input_required`, `completed`, `failed`, `cancelled`) and expand the attack surface to include background process manipulation and task state hijacking.
+
+**TLSMCP secures tasks by:**
+- Binding task IDs to the certificate that initiated them (same as session binding)
+- Rejecting task state transitions from different certificates
+- Enforcing timeout limits on long-running tasks
+- Logging all task state changes with certificate attribution
+- Rate-limiting task creation to prevent resource exhaustion
+
+```yaml
+mcp:
+  tasks:
+    bind_to_cert: true              # Task ID bound to initiating cert
+    max_concurrent: 50              # Max concurrent tasks per client
+    max_duration: 3600s             # Kill tasks after 1 hour
+    log_state_transitions: true     # Audit every state change
+```
+
+#### 2.4g Supply Chain & Registry Security
+
+##### The Problem
+
+The MCP ecosystem has a supply chain security crisis:
+
+- **41% of 518 official MCP registry servers lack authentication** at the protocol level (February 2026 audit)
+- Only **8.5%** of registered servers use OAuth
+- **36.7%** of 7,000+ MCP servers are vulnerable to SSRF
+- **67%** use APIs related to CWE-94 (Code Injection)
+- **34%** use APIs related to CWE-78 (Command Injection)
+- The npm "Shai-Hulud" worm (September 2025) compromised packages with **2 billion weekly downloads**
+- Smithery.ai path traversal exposed API keys across **3,000+ MCP servers**
+
+JS/TS MCP servers typically run via `npx`, which executes arbitrary code with full user permissions. Every direct and transitive dependency is pulled to the local system with the same access level as the user.
+
+##### TLSMCP Mitigation
+
+TLSMCP addresses supply chain risk at multiple levels:
+
+**1. Container Isolation**
+
+MCP servers behind TLSMCP run in isolated containers with restricted capabilities:
+
+```yaml
+mcp:
+  container_isolation:
+    enabled: true
+    runtime: docker                 # docker | podman | containerd
+    read_only_root: true            # Immutable root filesystem
+    no_new_privileges: true         # Prevent privilege escalation
+    seccomp_profile: default        # Restrict dangerous syscalls
+    network_mode: none              # No network access (TLSMCP proxies all traffic)
+    bind_mounts:                    # Minimal filesystem access
+      - "/data/mcp-workspace:ro"    # Read-only workspace
+    resource_limits:
+      memory: 512M
+      cpu: "1.0"
+      pids: 100                     # Prevent fork bombs
+```
+
+**2. Tool Integrity Verification**
+
+Beyond schema pinning (2.4d), TLSMCP integrates with attestation systems like [Credence](https://credence.securingthesingularity.com/) to verify MCP server provenance:
+
+```yaml
+mcp:
+  supply_chain:
+    require_attestation: true       # Require signed attestation for MCP servers
+    trusted_registries:             # Only allow servers from trusted sources
+      - "registry.modelcontextprotocol.io"
+    verify_signatures: true         # Verify server binary/package signatures
+    sbom_required: false            # Require SBOM (future — aligns with EO 14028)
+```
+
+**3. SBOM Integration (Future)**
+
+Executive Order 14028 mandates Software Bills of Materials for software sold to federal agencies. TLSMCP will support:
+- Generating SBOMs for its own binary (all Rust crate dependencies)
+- Requiring SBOMs from MCP servers it proxies
+- Scanning SBOMs against known vulnerability databases (NVD, OSV)
+- Blocking servers with known-vulnerable dependencies
+
+**4. Filesystem Security Boundaries (Roots)**
+
+MCP "Roots" define URI boundaries where servers can operate. 82% of MCP implementations using file operations are prone to CWE-22 (Path Traversal), often via symlink resolution failures.
+
+TLSMCP enforces filesystem boundaries at the proxy layer:
+
+```yaml
+mcp:
+  filesystem:
+    enforce_roots: true             # Reject file access outside declared roots
+    resolve_symlinks: true          # Resolve symlinks before checking boundaries
+    block_path_traversal: true      # Reject paths containing .. or . sequences
+    allowed_roots:
+      - "/data/workspace"
+      - "/tmp/mcp-scratch"
+```
+
+#### 2.4h Agent-to-Agent (A2A) Protocol Security
+
+##### The Landscape
+
+The MCP ecosystem doesn't exist in isolation. Google's Agent-to-Agent (A2A) protocol enables agent-to-agent communication and delegation — a complementary standard to MCP. Most scalable AI systems will use both:
+
+- **MCP** — connects AI agents to tools, APIs, and data sources
+- **A2A** — connects AI agents to other AI agents
+
+Together they create the full agentic communication layer. TLSMCP secures both.
+
+##### The Threat
+
+A2A creates a massive new east-west attack surface that is largely invisible to traditional security tooling:
+
+- **Agent Card spoofing** — A2A uses "Agent Cards" as the discovery mechanism. Malicious actors can create cards impersonating legitimate agents, embedding prompt injection payloads in descriptions and skill metadata.
+- **Delegation chain attacks** — agent-to-agent delegation creates multi-hop trust chains. A compromised agent in the middle can intercept, modify, or redirect delegated tasks.
+- **Cross-protocol escalation** — an attacker compromises an MCP server, uses it to influence an AI agent, which then delegates to other agents via A2A with elevated trust.
+
+##### TLSMCP Position
+
+TLSMCP secures A2A connections the same way it secures MCP — with certificate-based machine identity at every hop:
+
+```
+Agent A (cert A) → mTLS → TLSMCP → A2A → TLSMCP → Agent B (cert B)
+```
+
+**What TLSMCP provides for A2A:**
+- **Per-agent certificates** — every agent in the chain has a unique cert, not just a shared API key
+- **Delegation chain verification** — each hop in the A2A chain is cert-verified, creating a cryptographic delegation trail that mirrors the logical OBO chain
+- **Agent Card integrity** — TLSMCP can pin Agent Card definitions (same as tool schema pinning) and detect card tampering
+- **Cross-protocol audit** — unified audit trail across MCP tool calls and A2A delegations, all tied to certificate identities
+
+```yaml
+a2a:
+  enabled: true
+  pin_agent_cards: true             # Pin Agent Card definitions at first discovery
+  on_card_change: alert             # alert | block | allow
+  delegation_depth: 5               # Max delegation chain length
+  require_cert_per_hop: true        # Every agent in chain must present a cert
+```
+
+##### Governance: Agentic AI Foundation
+
+MCP governance moved to the [Agentic AI Foundation (AAIF)](https://www.linuxfoundation.org/press/linux-foundation-announces-the-formation-of-the-agentic-ai-foundation) under the Linux Foundation in December 2025. Co-founded by Anthropic, OpenAI, and Block, with platinum members including AWS, Google, Microsoft, and Cloudflare.
+
+**What this means for TLSMCP:**
+- MCP is now an industry standard, not a single-vendor spec — broader adoption = larger addressable market
+- Expect rapid spec evolution with input from all major cloud providers
+- A2A and MCP will likely converge or standardize interoperability under AAIF
+- TLSMCP's vendor-neutral, protocol-level security position aligns perfectly — we secure the transport, not the protocol semantics
+- W3C AI Agent Protocol Community Group is working on formal standards (expected 2026-2027)
+
+#### 2.4i Data Loss Prevention & Classification
+
+##### The Gap
+
+The MCP protocol has **no built-in data loss prevention controls**. Every request and response flows in plaintext (after TLS termination) between the MCP server and the AI agent. Sensitive data — PII, credentials, proprietary information, health records — can flow freely through tool calls with no inspection, filtering, or classification.
+
+This is a compliance blocker for healthcare (HIPAA), financial services (SOX, PCI-DSS), and any regulated industry (GDPR).
+
+##### TLSMCP as DLP Gateway
+
+TLSMCP inspects request and response payloads at the proxy layer, applying classification and policy enforcement before data reaches the MCP server or returns to the AI agent.
+
+```
+Agent → request → TLSMCP [DLP scan] → MCP Server
+Agent ← response ← TLSMCP [DLP scan] ← MCP Server
+```
+
+**Detection categories:**
+
+| Category | Examples | Default Action |
+|----------|----------|----------------|
+| PII | Names, emails, SSNs, phone numbers, addresses | Redact |
+| Credentials | API keys, OAuth tokens, passwords, private keys | Block |
+| Financial | Credit card numbers, bank accounts, salary data | Block |
+| Health (PHI) | Patient records, diagnoses, prescriptions | Block |
+| Proprietary | Marked confidential, internal project names | Alert |
+| Source code | Private repo paths, internal function signatures | Alert |
+
+```yaml
+mcp:
+  dlp:
+    enabled: true
+    scan_requests: true              # Scan agent → server payloads
+    scan_responses: true             # Scan server → agent payloads
+    policies:
+      - category: credentials
+        action: block                # block | redact | alert | allow
+        log: true
+      - category: pii
+        action: redact               # Replace with [REDACTED]
+        log: true
+      - category: phi
+        action: block
+        log: true
+        alert_channel: security      # Notify security team via Hub
+      - category: proprietary
+        action: alert
+        log: true
+    custom_patterns:                  # Organization-specific patterns
+      - name: internal_project
+        pattern: "PROJECT-(ALPHA|BETA|GAMMA)-\\d+"
+        action: alert
+    max_response_size: 1MB           # Reject oversized responses (prompt injection defense)
+```
+
+##### Compliance Mapping
+
+| Regulation | Requirement | TLSMCP DLP Capability |
+|-----------|-------------|----------------------|
+| **HIPAA** | Protect PHI in transit and at rest | Block PHI in tool responses; audit all access |
+| **SOX** | Audit trail for financial data access | 7-year log retention; immutable audit trail |
+| **GDPR** | Data minimization; right to erasure | Redact PII; log data flows for erasure requests |
+| **PCI-DSS** | Protect cardholder data | Block credit card numbers in tool responses |
+| **SOC 2** | Access controls and monitoring | Certificate-based access; continuous monitoring via Hub |
+
+##### Token & Credential Exposure Prevention
+
+A critical real-world attack pattern: MCP servers configured with over-privileged access tokens (Personal Access Tokens, API keys). If the AI agent is prompt-injected, it can exfiltrate these credentials through tool responses.
+
+**TLSMCP prevents this by:**
+- Scanning all tool responses for credential patterns (API keys, tokens, private keys)
+- Blocking responses containing detected credentials before they reach the agent
+- Alerting administrators when a server attempts to return credential-like data
+- Never forwarding the sidecar's own service token or cert private key to the MCP server
+
+#### Summary: TLSMCP as Complete MCP Security Platform
+
+TLSMCP has evolved beyond a simple TLS proxy. It is a **comprehensive MCP security platform** implementing the full CoSAI threat taxonomy:
+
+| Security Domain | Capabilities |
+|-----------------|-------------|
+| **Identity (2.4a-b)** | mTLS machine identity, OAuth 2.1 passthrough, OBO delegation chains, RFC 8705 token binding |
+| **MCP Server (2.4c)** | MCP tool exposure, cert management via natural language, AI-native security operations |
+| **Threat Mitigation (2.4d)** | Origin validation, session binding, tool poisoning/shadowing detection, rug pull defense |
+| **Sampling Security (2.4e)** | Rate limiting, content inspection, quota enforcement, prompt injection detection |
+| **Gateway Architecture (2.4f)** | Triple Gate Pattern, rate limiting, task security, abuse prevention |
+| **Supply Chain (2.4g)** | Container isolation, attestation verification, SBOM, filesystem boundaries |
+| **A2A Security (2.4h)** | Agent Card integrity, delegation chain verification, cross-protocol audit |
+| **DLP (2.4i)** | PII/credential/PHI detection, payload scanning, compliance mapping |
 
 #### Why This Matters
 
@@ -560,16 +905,21 @@ TLSMCP doesn't just add TLS to MCP — it provides a comprehensive security laye
 - Full audit trail of AI-to-tool interactions — not parsing access logs
 - Continuous posture scoring — not periodic audits
 - FIPS 140-3 and NIAP NDcPP compliance — not "we'll get to it"
+- DLP controls at the proxy layer — not hoping MCP servers don't leak data
+- Supply chain integrity — not blindly trusting npm packages
 
 **For platform teams:**
 - One binary, one config, one policy across the fleet — not per-server Nginx configs
 - Zero-downtime cert rotation — not 3am pages
 - AI-native management — agents manage their own identity lifecycle via MCP tools
+- A2A + MCP security from a single gateway — not separate tooling per protocol
 
 **For the MCP ecosystem:**
 - The missing machine identity layer that OAuth 2.1 doesn't provide
 - First product purpose-built for securing AI-to-tool connections
 - Complements the spec rather than competing with it
+- Aligned with AAIF governance and CoSAI threat taxonomy
+- Addresses the 41% of registry servers that have no authentication
 
 ---
 
@@ -833,7 +1183,19 @@ Watch cert files for changes, rebuild `SslAcceptor` without dropping connections
 - [ ] SIEM-compatible log format
 - [ ] RBAC policy enforcement from Hub
 
-### Phase 7 — Production Hardening
+### Phase 7 — MCP Security Platform
+- [ ] Sampling rate limiting + content inspection
+- [ ] Triple Gate Pattern implementation (identity → policy → audit)
+- [ ] MCP Tasks primitive security (cert binding, state transition controls)
+- [ ] DLP scanning engine (PII, credentials, PHI detection)
+- [ ] Tool schema pinning + change detection + alerting
+- [ ] Container isolation for MCP servers (Docker/podman sandboxing)
+- [ ] Filesystem boundary enforcement (roots, path traversal prevention)
+- [ ] A2A protocol support (Agent Card pinning, delegation chain verification)
+- [ ] Attestation verification (Credence integration)
+- [ ] Rate limiting + abuse prevention (per-client, per-tool, global)
+
+### Phase 8 — Production Hardening
 - [ ] Connection pooling + keep-alive to backend
 - [ ] Graceful shutdown (drain connections)
 - [ ] Health check endpoint
@@ -1045,7 +1407,7 @@ The architecture supports all required SFRs. Formal certification is a business 
 
 ---
 
-## 10. Performance Targets
+## 11. Performance Targets
 
 | Metric | Target |
 |--------|--------|
@@ -1058,7 +1420,7 @@ The architecture supports all required SFRs. Formal certification is a business 
 
 ---
 
-## 10. Testing Strategy
+## 12. Testing Strategy
 
 - **Unit tests:** Config parsing, cert validation logic, CN matching, revocation checks
 - **Integration tests:** Full proxy with test certs, mTLS handshake, backend forwarding
@@ -1071,3 +1433,12 @@ The architecture supports all required SFRs. Formal certification is a business 
 - **MCP tools:** Verify each tool executes correctly (issue, revoke, scan, score)
 - **MCP resources:** Verify resource URIs return correct data
 - **MCP-over-mTLS:** Verify SSE transport rejects unauthenticated MCP clients
+- **Sampling security:** Verify rate limits enforce, content inspection catches injection patterns, quota exceeded returns 429
+- **Tool schema pinning:** Verify schema changes detected, alerts fire, block mode rejects modified tools
+- **DLP scanning:** Verify PII/credential/PHI patterns detected and redacted/blocked per policy
+- **Session binding:** Verify session ID from cert A rejected when presented by cert B
+- **Rate limiting:** Verify per-client, per-tool, and global rate limits under load
+- **Container isolation:** Verify sandboxed MCP servers cannot access host filesystem or network
+- **Path traversal:** Verify symlink resolution and `..` traversal blocked at filesystem boundaries
+- **A2A security:** Verify Agent Card pinning, delegation chain depth limits, cross-protocol audit trail
+- **Task primitive:** Verify task IDs bound to certs, state transitions rejected from different certs
